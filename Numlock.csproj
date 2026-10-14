@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Numlock</RootNamespace>
+    <AssemblyName>Numlock</AssemblyName>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>assets/Numlock.ico</ApplicationIcon>
+    <Version>1.4</Version>
+    <Authors>Crucialmer</Authors>
+    <Product>Numlock</Product>
+    <Description>在系统托盘显示数字小键盘（NumLock）状态，并支持保持常开</Description>
+    <Copyright>Copyright (c) 2026 Crucialmer</Copyright>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>

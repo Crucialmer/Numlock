@@ -1,0 +1,21 @@
+bin/
+obj/
+publish/
+
+# 发布产物（zip 由 publish.cmd 生成，不作为源码提交）
+*.zip
+
+# 常见用户/IDE 文件
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.idea/
+.vscode/
+TestResults/
+
+# 构建/自检产物
+selftest/
+Numlock-v*-selftest.txt
+*.sha256
