@@ -56,8 +56,8 @@ internal sealed class MacAboutWindow : Form
         BackColor = Color.FromArgb(BgColor.R, BgColor.G, BgColor.B);
         KeyPreview = true;
 
-        int width = (int)(330 * _scale);
-        int height = (int)(410 * _scale);
+        int width = (int)(370 * _scale);
+        int height = (int)(480 * _scale);
         ClientSize = new Size(width, height);
 
         // 定位在屏幕右下角（任务栏工作区边缘）
@@ -139,24 +139,24 @@ internal sealed class MacAboutWindow : Form
         }
 
         // 顶部居中标题
-        using (var topFont = new Font("Segoe UI", 11 * _scale, FontStyle.Regular, GraphicsUnit.Pixel))
+        using (var topFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel))
         {
             TextRenderer.DrawText(g, "关于软件", topFont,
-                new Rectangle(0, (int)(12 * _scale), w, (int)(18 * _scale)),
+                new Rectangle(0, (int)(12 * _scale), w, (int)(20 * _scale)),
                 SecondaryFg, TextFormatFlags.HorizontalCenter | TextFormatFlags.SingleLine);
         }
 
         // ——— 3. 应用图标与品牌（居中） ———
-        int iconSize = (int)(52 * _scale);
+        int iconSize = (int)(56 * _scale);
         int iconX = (w - iconSize) / 2;
-        int iconY = (int)(42 * _scale);
+        int iconY = (int)(44 * _scale);
         using (var tileBmp = IconFactory.RenderAppTile(iconSize))
         {
             g.DrawImage(tileBmp, iconX, iconY, iconSize, iconSize);
         }
 
         // 软件名
-        using var nameFont = new Font("Segoe UI", 16 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var nameFont = new Font("Microsoft YaHei", 22f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var nameSize = TextRenderer.MeasureText(g, "Numlock", nameFont);
         int nameY = iconY + iconSize + (int)(8 * _scale);
         TextRenderer.DrawText(g, "Numlock", nameFont,
@@ -165,10 +165,10 @@ internal sealed class MacAboutWindow : Form
 
         // 版本胶囊徽章（Pill Badge）
         string verText = "v" + _version;
-        using var verFont = new Font("Segoe UI", 10.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var verFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var verSize = TextRenderer.MeasureText(g, verText, verFont);
-        int badgeW = verSize.Width + (int)(14 * _scale);
-        int badgeH = verSize.Height + (int)(4 * _scale);
+        int badgeW = verSize.Width + (int)(16 * _scale);
+        int badgeH = verSize.Height + (int)(6 * _scale);
         int badgeX = (w - badgeW) / 2;
         int badgeY = nameY + nameSize.Height + (int)(4 * _scale);
 
@@ -185,18 +185,18 @@ internal sealed class MacAboutWindow : Form
             AccentBlue, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 
         // 副标题描述
-        using var subFont = new Font("Segoe UI", 11 * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        int subY = badgeY + badgeH + (int)(5 * _scale);
+        using var subFont = new Font("Microsoft YaHei", 13f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        int subY = badgeY + badgeH + (int)(6 * _scale);
         TextRenderer.DrawText(g, "数字小键盘状态看护 · 保持常开", subFont,
-            new Rectangle(0, subY, w, (int)(18 * _scale)),
+            new Rectangle(0, subY, w, (int)(20 * _scale)),
             SecondaryFg, TextFormatFlags.HorizontalCenter | TextFormatFlags.SingleLine);
 
         // ——— 4. 状态图例与功能卡片（macOS Inset Card） ———
-        int cardMargin = (int)(16 * _scale);
+        int cardMargin = (int)(18 * _scale);
         int cardX = cardMargin;
         int cardY = subY + (int)(22 * _scale);
         int cardW = w - cardMargin * 2;
-        int cardH = (int)(130 * _scale);
+        int cardH = (int)(158 * _scale);
 
         var cardRect = new RectangleF(cardX, cardY, cardW, cardH);
         using (var cardPath = Gfx.RoundedRect(cardRect, 10 * _scale))
@@ -207,11 +207,11 @@ internal sealed class MacAboutWindow : Form
             g.DrawPath(cardStroke, cardPath);
         }
 
-        // 卡片内容：4 行图例
-        using var itemFont = new Font("Segoe UI", 11 * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        // 卡片内容：4 行图例（正文采用 12pt / 16px 微软雅黑）
+        using var itemFont = new Font("Microsoft YaHei", 16f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         int rowPadX = cardX + (int)(14 * _scale);
-        int startRowY = cardY + (int)(10 * _scale);
-        int rowH = (int)(27 * _scale);
+        int startRowY = cardY + (int)(11 * _scale);
+        int rowH = (int)(34 * _scale);
 
         DrawLegendRow(g, rowPadX, startRowY + rowH * 0, "实心键帽", "已开启（NumLock ON）", isSolid: true, hasBadge: false, itemFont);
         DrawLegendRow(g, rowPadX, startRowY + rowH * 1, "描边键帽", "已关闭（NumLock OFF）", isSolid: false, hasBadge: false, itemFont);
@@ -219,9 +219,9 @@ internal sealed class MacAboutWindow : Form
         DrawActionRow(g, rowPadX, startRowY + rowH * 3, "快捷交互", "双击切换 · 右键呼出菜单", itemFont);
 
         // ——— 5. 底部主页链接与操作按钮 ———
-        int linkY = cardY + cardH + (int)(10 * _scale);
+        int linkY = cardY + cardH + (int)(12 * _scale);
         string linkText = "GitHub: Crucialmer/Numlock";
-        using var linkFont = new Font("Segoe UI", 11 * _scale, _linkHover ? FontStyle.Underline : FontStyle.Regular, GraphicsUnit.Pixel);
+        using var linkFont = new Font("Microsoft YaHei", 13f * _scale, _linkHover ? FontStyle.Underline : FontStyle.Regular, GraphicsUnit.Pixel);
         var linkSize = TextRenderer.MeasureText(g, linkText, linkFont);
         int linkX = (w - linkSize.Width) / 2;
         _linkRect = new RectangleF(linkX, linkY, linkSize.Width, linkSize.Height);
@@ -232,10 +232,10 @@ internal sealed class MacAboutWindow : Form
             TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
 
         // 主按钮：“好”
-        int btnW = (int)(90 * _scale);
-        int btnH = (int)(28 * _scale);
+        int btnW = (int)(100 * _scale);
+        int btnH = (int)(32 * _scale);
         int btnX = (w - btnW) / 2;
-        int btnY = linkY + linkSize.Height + (int)(10 * _scale);
+        int btnY = linkY + linkSize.Height + (int)(12 * _scale);
         _actionBtnRect = new RectangleF(btnX, btnY, btnW, btnH);
 
         Color btnBg = _actionPressed
@@ -247,7 +247,7 @@ internal sealed class MacAboutWindow : Form
             using var btnBrush = new SolidBrush(btnBg);
             g.FillPath(btnBrush, btnPath);
         }
-        using var btnFont = new Font("Segoe UI", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var btnFont = new Font("Microsoft YaHei", 15f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         TextRenderer.DrawText(g, "好", btnFont,
             new Rectangle(btnX, btnY, btnW, btnH),
             Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
@@ -260,9 +260,9 @@ internal sealed class MacAboutWindow : Form
 
     private void DrawLegendRow(Graphics g, int x, int y, string label, string desc, bool isSolid, bool hasBadge, Font font)
     {
-        // 绘制微缩键帽图标（14x14）
-        int sz = (int)(14 * _scale);
-        int iconY = y + (int)(3 * _scale);
+        // 绘制微缩键帽图标（16x16）
+        int sz = (int)(16 * _scale);
+        int iconY = y + (int)(4 * _scale);
         using var iconBmp = IconFactory.RenderTrayIcon(sz, isSolid, _dark, hasBadge);
         g.DrawImage(iconBmp, x, iconY, sz, sz);
 
@@ -270,33 +270,33 @@ internal sealed class MacAboutWindow : Form
         using var boldFont = new Font(font.FontFamily, font.Size, FontStyle.Bold, GraphicsUnit.Pixel);
         var labelSize = TextRenderer.MeasureText(g, label, boldFont);
         TextRenderer.DrawText(g, label, boldFont,
-            new Rectangle(textX, y, labelSize.Width, (int)(20 * _scale)),
+            new Rectangle(textX, y, labelSize.Width, (int)(26 * _scale)),
             FgColor, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
 
         int descX = textX + labelSize.Width + (int)(6 * _scale);
         TextRenderer.DrawText(g, "·  " + desc, font,
-            new Rectangle(descX, y, (int)(180 * _scale), (int)(20 * _scale)),
+            new Rectangle(descX, y, (int)(210 * _scale), (int)(26 * _scale)),
             SecondaryFg, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
     }
 
     private void DrawActionRow(Graphics g, int x, int y, string label, string desc, Font font)
     {
-        int sz = (int)(14 * _scale);
+        int sz = (int)(16 * _scale);
         // 小圆点符号
         using var dotBrush = new SolidBrush(Color.FromArgb(_dark ? 120 : 160, AccentBlue));
         float dotR = 3.5f * _scale;
-        g.FillEllipse(dotBrush, x + sz / 2f - dotR, y + sz / 2f - dotR + (int)(3 * _scale), dotR * 2, dotR * 2);
+        g.FillEllipse(dotBrush, x + sz / 2f - dotR, y + sz / 2f - dotR + (int)(4 * _scale), dotR * 2, dotR * 2);
 
         int textX = x + sz + (int)(10 * _scale);
         using var boldFont = new Font(font.FontFamily, font.Size, FontStyle.Bold, GraphicsUnit.Pixel);
         var labelSize = TextRenderer.MeasureText(g, label, boldFont);
         TextRenderer.DrawText(g, label, boldFont,
-            new Rectangle(textX, y, labelSize.Width, (int)(20 * _scale)),
+            new Rectangle(textX, y, labelSize.Width, (int)(26 * _scale)),
             FgColor, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
 
         int descX = textX + labelSize.Width + (int)(6 * _scale);
         TextRenderer.DrawText(g, "·  " + desc, font,
-            new Rectangle(descX, y, (int)(180 * _scale), (int)(20 * _scale)),
+            new Rectangle(descX, y, (int)(210 * _scale), (int)(26 * _scale)),
             SecondaryFg, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
     }
 

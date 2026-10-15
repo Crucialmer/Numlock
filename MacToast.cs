@@ -102,8 +102,8 @@ internal sealed class MacToast : Form
         Opacity = 0.05;
         BackColor = Color.FromArgb(BgColor.R, BgColor.G, BgColor.B);
 
-        int width = (int)(336 * _scale);
-        int baseHeight = _hasButtons ? (int)(126 * _scale) : (int)(96 * _scale);
+        int width = (int)(370 * _scale);
+        int baseHeight = _hasButtons ? (int)(150 * _scale) : (int)(116 * _scale);
         ClientSize = new Size(width, baseHeight);
 
         // 位于屏幕右下角（任务栏工作区边缘留白）
@@ -177,13 +177,13 @@ internal sealed class MacToast : Form
         int padX = (int)(14 * _scale);
         int topY = (int)(10 * _scale);
 
-        int miniIconSize = (int)(14 * _scale);
+        int miniIconSize = (int)(16 * _scale);
         using (var miniTile = IconFactory.RenderAppTile(miniIconSize))
         {
             g.DrawImage(miniTile, padX, topY, miniIconSize, miniIconSize);
         }
 
-        using var appNameFont = new Font("Segoe UI", 10.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var appNameFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var appNameSize = TextRenderer.MeasureText(g, "Numlock", appNameFont);
         TextRenderer.DrawText(g, "Numlock", appNameFont,
             new Rectangle(padX + miniIconSize + (int)(6 * _scale), topY - 1, appNameSize.Width, miniIconSize + 2),
@@ -194,7 +194,7 @@ internal sealed class MacToast : Form
             ToastType.Checking or ToastType.UpdateReady => "检查更新",
             _ => "系统通知",
         };
-        using var catFont = new Font("Segoe UI", 10f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var catFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         int catX = padX + miniIconSize + (int)(6 * _scale) + appNameSize.Width + (int)(6 * _scale);
         TextRenderer.DrawText(g, "· " + catText, catFont,
             new Rectangle(catX, topY - 1, (int)(100 * _scale), miniIconSize + 2),
@@ -217,31 +217,31 @@ internal sealed class MacToast : Form
 
         // 3. 图标（左侧）
         int bodyY = topY + miniIconSize + (int)(10 * _scale);
-        int iconSize = (int)(28 * _scale);
+        int iconSize = (int)(32 * _scale);
         DrawStatusIcon(g, padX, bodyY, iconSize);
 
         // 4. 文字（右侧）
         int textX = padX + iconSize + (int)(12 * _scale);
         int textW = w - textX - padX;
 
-        using var titleFont = new Font("Segoe UI", 12 * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var titleFont = new Font("Microsoft YaHei", 16f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var titleSize = TextRenderer.MeasureText(g, _title, titleFont);
         TextRenderer.DrawText(g, _title, titleFont,
             new Rectangle(textX, bodyY - (int)(1 * _scale), textW, titleSize.Height),
             FgColor, TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.WordEllipsis);
 
-        int msgY = bodyY + titleSize.Height + (int)(2 * _scale);
-        using var msgFont = new Font("Segoe UI", 11 * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        int msgY = bodyY + titleSize.Height + (int)(3 * _scale);
+        using var msgFont = new Font("Microsoft YaHei", 16f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         TextRenderer.DrawText(g, _message, msgFont,
-            new Rectangle(textX, msgY, textW, (int)(32 * _scale)),
+            new Rectangle(textX, msgY, textW, (int)(42 * _scale)),
             SecondaryFg, TextFormatFlags.Left | TextFormatFlags.WordBreak);
 
         // 5. 交互按钮（底部）
         if (_hasButtons)
         {
-            int btnH = (int)(26 * _scale);
+            int btnH = (int)(28 * _scale);
             int btnY = h - (int)(12 * _scale) - btnH;
-            using var btnFont = new Font("Segoe UI", 11 * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+            using var btnFont = new Font("Microsoft YaHei", 14f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
 
             if (!string.IsNullOrEmpty(_secondaryBtnText))
             {

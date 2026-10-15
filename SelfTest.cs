@@ -581,10 +581,10 @@ internal static class SelfTest
                     applyOk && applyWatch.ElapsedMilliseconds >= 250 && untouchedWhileWaiting && copiedAfterExit);
 
                 var updMenu = app.UpdateMenuItemForTest;
-                bool menuWired = updMenu.DropDownItems.Count == 3
+                bool menuWired = updMenu.DropDownItems.Count == 2
                     && updMenu.DropDownItems.Contains(app.CheckNowItemForTest)
-                    && updMenu.DropDownItems.Contains(app.AutoCheckItemForTest)
-                    && updMenu.DropDownItems.Contains(app.ApplyUpdateItemForTest);
+                    && updMenu.DropDownItems.Contains(app.ApplyUpdateItemForTest)
+                    && !updMenu.DropDownItems.Contains(app.AutoCheckItemForTest);
                 bool hiddenWhenNoneWithMenuClosed = !app.ApplyUpdateItemForTest.Visible;
                 // ToolStripItem.Visible 会与父级可见性相与：菜单统统收起时恒为 false，断言会“空洞通过”。
                 // 因此这里真正把主菜单与“检查更新”子菜单都展开，读到的才是用户看到的可见性。
@@ -607,23 +607,15 @@ internal static class SelfTest
                 app.UpdateMenuItemForTest.DropDown.Close();
                 app.Menu.Close();
                 PumpFor(150);
-                Check($"M7. “检查更新”子菜单（3 项齐全={menuWired} / 无更新时隐藏={hiddenWhenNone} / 有更新时显示并启用={shownWhenStaged} / 清除后恢复隐藏={hiddenAgain}）{m7Detail}",
+                Check($"M7. “检查更新”子菜单（2 项精简={menuWired} / 无更新时隐藏={hiddenWhenNone} / 有更新时显示并启用={shownWhenStaged} / 清除后恢复隐藏={hiddenAgain}）{m7Detail}",
                     menuWired && hiddenWhenNone && shownWhenStaged && hiddenAgain);
 
-                // M7b：把配置真的切到 true/false 各断言一次（否则“勾选 == 配置”在配置为 false 时恒真，属空洞通过）
-                bool savedAuto = app.Config.CheckUpdatesOnStart;
-                app.Config.CheckUpdatesOnStart = true;
-                app.SyncMenuState();
-                bool followsOn = app.AutoCheckItemForTest.Checked;
-                app.Config.CheckUpdatesOnStart = false;
-                app.SyncMenuState();
-                bool followsOff = !app.AutoCheckItemForTest.Checked;
-                app.Config.CheckUpdatesOnStart = savedAuto;
-                app.SyncMenuState();
-                Check($"M7b. “启动时自动检查”勾选跟随配置（置 true→勾选={followsOn}；置 false→未勾选={followsOff}）", followsOn && followsOff);
+                // M7b：启动时检查更新为默认常开功能，不出现在“检查更新”选项中
+                var cfgDefault = AppConfig.Parse("{}");
+                Check("M7b. 启动时自动检查更新默认常开且不占用菜单槽位",
+                    cfgDefault.CheckUpdatesOnStart && !updMenu.DropDownItems.Contains(app.AutoCheckItemForTest));
 
                 var cfgOff = AppConfig.Parse("""{"CheckUpdatesOnStart":false,"UpdateNotifiedVersion":"1.9.0"}""");
-                var cfgDefault = AppConfig.Parse("{}");
                 Check("M8. 配置新增键（可显式关闭自动检查 / 缺省为开启 / 记住已提示版本）",
                     !cfgOff.CheckUpdatesOnStart && cfgOff.UpdateNotifiedVersion == "1.9.0"
                     && cfgDefault.CheckUpdatesOnStart && cfgDefault.UpdateNotifiedVersion == null);

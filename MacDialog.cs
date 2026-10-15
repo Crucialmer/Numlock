@@ -72,13 +72,13 @@ internal sealed class MacDialog : Form
 
         // DPI 自适应
         _scale = DeviceDpi / 96f;
-        _iconSize = (int)(40 * _scale);
-        _btnHeight = (int)(30 * _scale);
-        _btnMinWidth = (int)(72 * _scale);
+        _iconSize = (int)(44 * _scale);
+        _btnHeight = (int)(32 * _scale);
+        _btnMinWidth = (int)(76 * _scale);
         _padding = (int)(24 * _scale);
         _cornerRadius = (int)(14 * _scale);
-        _titleFontSize = (int)(13 * _scale);
-        _bodyFontSize = (int)(12 * _scale);
+        _titleFontSize = (int)(18 * _scale);
+        _bodyFontSize = (int)(16 * _scale);
 
         SetupForm();
     }
@@ -96,11 +96,11 @@ internal sealed class MacDialog : Form
         KeyPreview = true;
 
         // 测量文字计算窗口尺寸
-        int dialogWidth = (int)(360 * _scale);
+        int dialogWidth = (int)(380 * _scale);
         int contentWidth = dialogWidth - _padding * 2;
 
-        using var titleFont = new Font("Segoe UI", _titleFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-        using var bodyFont = new Font("Segoe UI", _bodyFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var titleFont = new Font("Microsoft YaHei", _titleFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var bodyFont = new Font("Microsoft YaHei", _bodyFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
 
         int titleHeight;
         int bodyHeight;
@@ -185,7 +185,7 @@ internal sealed class MacDialog : Form
         y += _iconSize + (int)(12 * _scale);
 
         // ——— 标题（居中） ———
-        using var titleFont = new Font("Segoe UI", _titleFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var titleFont = new Font("Microsoft YaHei", _titleFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
         var titleSize = TextRenderer.MeasureText(g, _title, titleFont,
             new Size(contentWidth, 9999),
             TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
@@ -196,7 +196,7 @@ internal sealed class MacDialog : Form
         y += titleSize.Height + (int)(8 * _scale);
 
         // ——— 正文（居中） ———
-        using var bodyFont = new Font("Segoe UI", _bodyFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var bodyFont = new Font("Microsoft YaHei", _bodyFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
         var bodySize = TextRenderer.MeasureText(g, _message, bodyFont,
             new Size(contentWidth, 9999),
             TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
@@ -226,7 +226,7 @@ internal sealed class MacDialog : Form
 
     private void DrawButtons(Graphics g, int y, int dialogWidth)
     {
-        using var btnFont = new Font("Segoe UI", _bodyFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var btnFont = new Font("Microsoft YaHei", (int)(15 * _scale), FontStyle.Regular, GraphicsUnit.Pixel);
 
         string primaryText = _buttons switch
         {

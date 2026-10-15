@@ -63,8 +63,8 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
 
     private Color Bg => Dark ? Color.FromArgb(230, 36, 36, 38) : Color.FromArgb(235, 246, 246, 248);
     private Color Fg => Dark ? Color.FromArgb(255, 245, 245, 247) : Color.FromArgb(255, 29, 29, 31);
-    private Color Accent => Dark ? Color.FromArgb(255, 10, 132, 255) : Color.FromArgb(255, 0, 122, 255);
-    private Color PressedAccent => Dark ? Color.FromArgb(255, 8, 108, 212) : Color.FromArgb(255, 0, 106, 224);
+    private Color Accent => Dark ? Color.FromArgb(34, 255, 255, 255) : Color.FromArgb(255, 0, 122, 255);
+    private Color PressedAccent => Dark ? Color.FromArgb(50, 255, 255, 255) : Color.FromArgb(255, 0, 106, 224);
     private Color Stroke => Dark ? Color.FromArgb(48, 255, 255, 255) : Color.FromArgb(24, 0, 0, 0);
     private Color SeparatorColor => Dark ? Color.FromArgb(42, 255, 255, 255) : Color.FromArgb(32, 0, 0, 0);
 
@@ -173,8 +173,22 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
     /// 勾选右缘与分隔线左端都以它为基准，才能在任意 DPI 下与文字对齐（框架的装订线宽度并非按逻辑像素线性缩放）。</summary>
     private readonly Dictionary<ToolStrip, int> _textLeft = new();
 
+    /// <summary>显式记录或更新菜单的文字起点基准 x（供顶部品牌卡片与分隔线在首帧精准对齐）。</summary>
+    public void SetTextLeft(ToolStrip strip, int x) => _textLeft[strip] = x;
+
+    /// <summary>获取或预估菜单的项文字起点 x 坐标。</summary>
+    public int GetEstimatedTextLeft(ToolStrip? strip)
+    {
+        if (strip != null && _textLeft.TryGetValue(strip, out int x))
+        {
+            return x;
+        }
+        float scale = (strip?.DeviceDpi ?? 96) / 96f;
+        return (int)Math.Round(19.5f * scale);
+    }
+
     private int? TextLeftOf(ToolStrip? strip) =>
-        strip != null && _textLeft.TryGetValue(strip, out int x) ? x : null;
+        strip != null && _textLeft.TryGetValue(strip, out int x) ? x : (strip != null ? GetEstimatedTextLeft(strip) : null);
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {

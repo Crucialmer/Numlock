@@ -98,6 +98,7 @@ internal sealed class TrayApp : ApplicationContext
             Renderer = MenuRenderer, // 赋自定义 Renderer 即隐含 Custom 模式（不能再显式设置 RenderMode）
         };
         var mm = MenuMetrics.For(Menu.DeviceDpi);
+        Menu.Font = CreateMenuFont(mm.Scale);
 
         void StyleItems(IList<ToolStripItem> list)
         {
@@ -123,6 +124,7 @@ internal sealed class TrayApp : ApplicationContext
         _modeBlack = new ToolStripMenuItem("黑色图标（浅色任务栏）", null, (_, _) => SetIconColorMode(IconColor.Black));
         var colorMenu = new ToolStripMenuItem("图标颜色");
         _colorMenu = colorMenu;
+        colorMenu.DropDown.Font = CreateMenuFont(mm.Scale);
         StyleItems(new ToolStripItem[] { _modeAuto, _modeWhite, _modeBlack });
         colorMenu.DropDownItems.AddRange(new ToolStripItem[] { _modeAuto, _modeWhite, _modeBlack });
 
@@ -139,11 +141,17 @@ internal sealed class TrayApp : ApplicationContext
         _autoCheckItem = new ToolStripMenuItem("启动时自动检查", null, (_, _) => ToggleAutoCheck());
         var updateMenu = new ToolStripMenuItem("检查更新");
         _updateMenu = updateMenu;
-        StyleItems(new ToolStripItem[] { _checkNowItem, _applyUpdateItem, _autoCheckItem });
-        updateMenu.DropDownItems.AddRange(new ToolStripItem[] { _checkNowItem, _applyUpdateItem, _autoCheckItem });
+        updateMenu.DropDown.Font = CreateMenuFont(mm.Scale);
+        StyleItems(new ToolStripItem[] { _checkNowItem, _applyUpdateItem });
+        updateMenu.DropDownItems.AddRange(new ToolStripItem[] { _checkNowItem, _applyUpdateItem });
+
+        // macOS 26 顶部专属品牌状态卡片：位于菜单最顶部的非激活态原生状态行
+        var brandHeader = new MacBrandHeaderItem(Updater.CurrentVersion.ToString(3), () => MenuRenderer.Dark);
 
         var mainItems = new ToolStripItem[]
         {
+            brandHeader,
+            new ToolStripSeparator(),
             _toggleItem,
             new ToolStripSeparator(),
             _enforceItem,
@@ -879,6 +887,11 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             var m = MenuMetrics.For(dd.DeviceDpi);
+            float targetFontSize = 13f * m.Scale;
+            if (dd.Font.Name != "Microsoft YaHei" || Math.Abs(dd.Font.Size - targetFontSize) > 0.1f || !dd.Font.Bold)
+            {
+                dd.Font = CreateMenuFont(m.Scale);
+            }
             bool changed = false;
             for (int i = 0; i < dd.Items.Count; i++)
             {
@@ -891,6 +904,18 @@ internal sealed class TrayApp : ApplicationContext
         }
         catch
         {
+        }
+    }
+
+    private static Font CreateMenuFont(float scale)
+    {
+        try
+        {
+            return new Font("Microsoft YaHei", 13f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        }
+        catch
+        {
+            return new Font(FontFamily.GenericSansSerif, 13f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
         }
     }
 
