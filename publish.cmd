@@ -28,7 +28,7 @@ rem operator does NOT wait for GUI exes, and Start-Process -ArgumentList does no
 rem which would split a TEMP path containing spaces and pollute an unrelated directory).
 set PKGTEST=%TEMP%\numlock-selftest-pkg
 if exist "%PKGTEST%" rmdir /s /q "%PKGTEST%"
-"publish\Numlock.exe" --selftest "%PKGTEST%"
+start /wait "" "publish\Numlock.exe" --selftest "%PKGTEST%"
 if errorlevel 1 (echo ERROR: packaged selftest failed - quit any running Numlock first and see "%PKGTEST%\selftest.txt" & exit /b 1)
 copy /y "%PKGTEST%\selftest.txt" "Numlock-v%APPVER%-selftest.txt" >nul
 if errorlevel 1 (echo ERROR: copy selftest report failed & exit /b 1)
