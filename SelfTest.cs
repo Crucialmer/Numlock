@@ -294,7 +294,7 @@ internal static class SelfTest
                 Check($"L1. 勾选与文字间距（{gapPx}px，阈值 ≥{3.5 * scale:F1}px）", gapPx >= 3.5 * scale);
 
                 int sepLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripSeparator>().First().Bounds);
-                int textLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text == "关于").Bounds);
+                int textLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text != null && i.Text.StartsWith("关于")).Bounds);
                 Check($"L2. 分隔线左端与文字起点对齐（分隔线 {sepLeft} vs 文字 {textLeft}）",
                     sepLeft > 0 && textLeft > 0 && Math.Abs(sepLeft - textLeft) <= (int)Math.Ceiling(3 * scale));
 
@@ -327,7 +327,7 @@ internal static class SelfTest
 
             // J. 悬停高亮渲染（真实屏幕像素断言：移动鼠标到“关于”项，检查出现高亮蓝）
             {
-                var about = app.Menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text == "关于");
+                var about = app.Menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text != null && i.Text.StartsWith("关于"));
                 app.Menu.Show(new Point(240, 240));
                 app.SetMenuTheme(dark: false);
                 PumpFor(250);

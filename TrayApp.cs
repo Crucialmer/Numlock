@@ -126,7 +126,7 @@ internal sealed class TrayApp : ApplicationContext
         StyleItems(new ToolStripItem[] { _modeAuto, _modeWhite, _modeBlack });
         colorMenu.DropDownItems.AddRange(new ToolStripItem[] { _modeAuto, _modeWhite, _modeBlack });
 
-        var aboutItem = new ToolStripMenuItem("关于", null, (_, _) => ShowAbout());
+        var aboutItem = new ToolStripMenuItem("关于软件", null, (_, _) => ShowAbout());
         var exitItem = new ToolStripMenuItem("退出", null, (_, _) => ExitApp());
 
         // 更新子菜单：手动检查 / 重启并更新（有暂存版本时才可用）/ 启动时自动检查（勾选）
@@ -336,34 +336,22 @@ internal sealed class TrayApp : ApplicationContext
     {
         if (Config.EnforceNumLock)
         {
-            ShowBalloon("“保持常开”已启用", "NumLock 将始终保持在开启状态。如需手动切换，请先关闭“保持常开”。", ToolTipIcon.Info);
             NumLock.Ensure(true);
             RefreshIcon(force: true);
             return;
         }
-        // 手动切换没有看护兜底：Ensure 内部已含“等翻转生效 + 二次确认”，
-        // 高负载下不会再把在途翻转误判为完成或重复注入
-        if (!NumLock.Ensure(!NumLock.IsOn))
-        {
-            ShowBalloon("切换 NumLock 失败", "按键注入被系统拦截，请重试。", ToolTipIcon.Warning);
-        }
+        NumLock.Ensure(!NumLock.IsOn);
         RefreshIcon(force: true);
     }
 
     private void SetEnforce(bool on)
     {
         Config.EnforceNumLock = on;
-        if (!SaveConfig())
-        {
-            ShowBalloon("配置保存失败", "设置只在本次运行内有效。", ToolTipIcon.Warning);
-        }
+        SaveConfig();
         if (on)
         {
             EnsureHook(); // 启用即挂钩子
-            if (!NumLock.Ensure(true))
-            {
-                ShowBalloon("NumLock 自动恢复失败", "可能被高权限窗口（UIPI）拦截，将自动重试。", ToolTipIcon.Warning);
-            }
+            NumLock.Ensure(true);
         }
         else
         {
@@ -380,9 +368,9 @@ internal sealed class TrayApp : ApplicationContext
         {
             AutoStart.Set(target);
         }
-        catch
+        catch (Exception ex)
         {
-            ShowBalloon("无法修改开机自启", "注册表写入被拒绝（可能被安全软件或组策略拦截）。", ToolTipIcon.Warning);
+            LogUnhandled(ex);
         }
         SyncMenuState();
     }
@@ -390,10 +378,7 @@ internal sealed class TrayApp : ApplicationContext
     private void SetIconColorMode(IconColor mode)
     {
         Config.IconColorMode = mode;
-        if (!SaveConfig())
-        {
-            ShowBalloon("配置保存失败", "设置只在本次运行内有效。", ToolTipIcon.Warning);
-        }
+        SaveConfig();
         RefreshIcon(force: true);
         SyncMenuState();
     }
@@ -437,7 +422,7 @@ internal sealed class TrayApp : ApplicationContext
         _updateCheckRequested = true;
         if (manual && !_updateBusy)
         {
-            ShowBalloon("正在检查更新", "正在连接更新服务器…", ToolTipIcon.Info);
+            MacToast.ShowChecking();
         }
     }
 
@@ -449,7 +434,7 @@ internal sealed class TrayApp : ApplicationContext
             // 更新刚完成（一次性）：明确告知用户，避免“托盘图标闪了一下”被当成异常
             string done = _pendingUpdatedNotice;
             _pendingUpdatedNotice = "";
-            ShowBalloon("已更新到 " + done, "本次更新已自动完成，无需其他操作。", ToolTipIcon.Info);
+            MacToast.Show("更新完成", "已更新到 " + done + "，本次更新已自动完成。", MacToast.ToastType.Success);
         }
         // 启动自动应用：发现已就绪更新时，本次启动直接换上新版并重启一次（用户无需操作）。
         // 覆盖“上次是关机/注销结束的，退出路径没机会替换”的情况。
@@ -479,7 +464,7 @@ internal sealed class TrayApp : ApplicationContext
             _pendingUpdateNotice = "";
             Config.UpdateNotifiedVersion = pending;
             SaveConfig();
-            ShowBalloon("更新已就绪", $"新版本 {pending} 已下载；退出程序时自动完成更新，也可在菜单里选择“重启并更新”。", ToolTipIcon.Info);
+            MacToast.ShowUpdateReady(pending, () => ApplyStagedUpdateAndRestart());
         }
         bool due = Config.CheckUpdatesOnStart && Environment.TickCount64 >= _nextAutoCheckMs;
         if (!_updateCheckRequested && !(due && _stagedVersion == null))
@@ -556,35 +541,33 @@ internal sealed class TrayApp : ApplicationContext
                         Config.UpdateNotifiedVersion = _updateVersionText;
                         SaveConfig();
                     }
-                    ShowBalloon("更新已就绪", $"新版本 {_updateVersionText} 已下载；退出程序时自动完成更新，也可在菜单里选择“重启并更新”。", ToolTipIcon.Info);
+                    MacToast.ShowUpdateReady(_updateVersionText, () => ApplyStagedUpdateAndRestart());
                 }
                 break;
             case UpdateOutcomeStageFailed:
                 if (_updateManualResult)
                 {
-                    MacDialog.ShowWarning(
-                        "检查更新",
-                        $"发现新版本 {_updateVersionText}（当前 {Updater.CurrentVersion.ToString(3)}），但自动下载失败。\n\n" +
-                        "安装目录可能不可写，或网络中断。可到发布页手动下载：\n" + Updater.PageUrl);
+                    MacToast.ShowUpdateFailed(
+                        $"发现新版本 {_updateVersionText}（当前 {Updater.CurrentVersion.ToString(3)}），但自动下载失败。安装目录可能不可写或网络中断。",
+                        Updater.PageUrl);
                 }
                 else if (_updateVersionText.Length > 0 && !string.Equals(Config.UpdateNotifiedVersion, _updateVersionText, StringComparison.Ordinal))
                 {
-                    // 自动路径也不能“悄悄永远不更新”：同一版本提示一次
                     Config.UpdateNotifiedVersion = _updateVersionText;
                     SaveConfig();
-                    ShowBalloon("自动更新未完成", $"发现新版本 {_updateVersionText}，但下载未成功；将稍后重试，也可到发布页手动下载。", ToolTipIcon.Warning);
+                    MacToast.ShowUpdateFailed($"发现新版本 {_updateVersionText}，但自动下载未成功。可前往发布页手动下载。", Updater.PageUrl);
                 }
                 break;
             case UpdateOutcomeUpToDate:
                 if (_updateManualResult)
                 {
-                    ShowBalloon("已是最新版本", $"当前版本 {Updater.CurrentVersion.ToString(3)}。", ToolTipIcon.Info);
+                    MacToast.ShowUpToDate(Updater.CurrentVersion.ToString(3));
                 }
                 break;
             default:
                 if (_updateManualResult)
                 {
-                    ShowBalloon("检查更新失败", "无法连接更新服务器，请检查网络后重试（也可到发布页手动下载）。", ToolTipIcon.Warning);
+                    MacToast.ShowUpdateFailed("无法连接更新服务器，请检查网络后重试。", Updater.PageUrl);
                 }
                 break;
         }
@@ -594,10 +577,7 @@ internal sealed class TrayApp : ApplicationContext
     private void ToggleAutoCheck()
     {
         Config.CheckUpdatesOnStart = !Config.CheckUpdatesOnStart;
-        if (!SaveConfig())
-        {
-            ShowBalloon("配置保存失败", "设置只在本次运行内有效。", ToolTipIcon.Warning);
-        }
+        SaveConfig();
         if (Config.CheckUpdatesOnStart)
         {
             _nextAutoCheckMs = Environment.TickCount64 + 5_000; // 重新开启后很快查一次
@@ -801,10 +781,12 @@ internal sealed class TrayApp : ApplicationContext
 
     private void ShowBalloon(string title, string text, ToolTipIcon icon)
     {
-        Tray.BalloonTipTitle = title;
-        Tray.BalloonTipText = text;
-        Tray.BalloonTipIcon = icon;
-        Tray.ShowBalloonTip(3000);
+        MacToast.Show(title, text, icon switch
+        {
+            ToolTipIcon.Warning => MacToast.ToastType.Warning,
+            ToolTipIcon.Error => MacToast.ToastType.Error,
+            _ => MacToast.ToastType.Info,
+        });
     }
 
     private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
@@ -976,7 +958,7 @@ internal sealed class TrayApp : ApplicationContext
     private static void ShowAbout()
     {
         string version = typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
-        MacDialog.ShowAbout(version);
+        MacAboutWindow.ShowAbout(version);
     }
 
     /// <summary>登记当前实例：未处理异常兜底需要一个活着的实例来弹提示。</summary>
