@@ -186,7 +186,8 @@ internal static class Updater
             {
                 return (UpdateCheckResult.Failed, null);
             }
-            string json = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            using var reader = new StreamReader(resp.Content.ReadAsStream());
+            string json = reader.ReadToEnd();
             var info = ParseLatestRelease(json);
             if (info == null)
             {
@@ -289,7 +290,8 @@ internal static class Updater
             {
                 return null;
             }
-            string text = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult().Trim();
+            using var reader = new StreamReader(resp.Content.ReadAsStream());
+            string text = reader.ReadToEnd().Trim();
             string hex = text.Split(' ', '\t', '*', '\r', '\n')[0].Trim().ToLowerInvariant();
             return hex.Length == 64 && hex.All(Uri.IsHexDigit) ? hex : null;
         }

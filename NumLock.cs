@@ -13,12 +13,8 @@ internal static class NumLock
 
     /// <summary>
     /// 把 NumLock 校正到目标状态，返回是否达到目标。
-    /// 单次尝试最坏 ≈ settleMs 二次确认 + 注入 + flipWaitMs 等翻转生效，默认 2 次尝试最坏 ≈200ms；
-    /// 调用方多在 UI 线程（低级键盘钩子回调也在 UI 线程派发），阻塞过长可能触发 Windows 的钩子
-    /// 回调超时（≈300ms）导致钩子被静默摘除——看护循环因此用 attempts:1, settleMs:12，
-    /// 并在上一次失败时把 flipWaitMs 收到 25ms（单次阻塞 ≈35ms），长重试交给下一个看护周期。
-    /// 每次注入后先等“翻转已生效”（高负载下注入可能滞后数十毫秒），
-    /// 再以“二次读取确认”判定成功——避免把在途翻转当成完成，或重复注入相互抵消。
+    /// 优化等待机制：采用 1ms 高精度短片等待代替 5ms 粗颗粒休眠，最小化 UI 消息泵延迟；
+    /// 每次注入后等待状态翻转生效，再以二次确认判定成功。
     /// </summary>
     public static bool Ensure(bool desired, int attempts = 2, int settleMs = 20, int flipWaitMs = 80)
     {
@@ -34,10 +30,45 @@ internal static class NumLock
             long deadline = Environment.TickCount64 + flipWaitMs;
             while (IsOn == before && Environment.TickCount64 < deadline)
             {
-                Thread.Sleep(5);
+                Thread.Sleep(1);
             }
         }
         return Settled(desired, settleMs);
+    }
+
+    /// <summary>异步非阻塞校正 NumLock 到目标状态（提供现代异步流支持）。</summary>
+    public static async ValueTask<bool> EnsureAsync(bool desired, int attempts = 2, int settleMs = 20, int flipWaitMs = 80, CancellationToken ct = default)
+    {
+        for (int i = 0; i < attempts; i++)
+        {
+            if (IsOn == desired)
+            {
+                if (settleMs > 0)
+                {
+                    await Task.Delay(settleMs, ct).ConfigureAwait(false);
+                }
+                if (IsOn == desired)
+                {
+                    return true;
+                }
+            }
+            bool before = IsOn;
+            Toggle();
+            long deadline = Environment.TickCount64 + flipWaitMs;
+            while (IsOn == before && Environment.TickCount64 < deadline && !ct.IsCancellationRequested)
+            {
+                await Task.Delay(2, ct).ConfigureAwait(false);
+            }
+        }
+        if (IsOn != desired)
+        {
+            return false;
+        }
+        if (settleMs > 0)
+        {
+            await Task.Delay(settleMs, ct).ConfigureAwait(false);
+        }
+        return IsOn == desired;
     }
 
     /// <summary>状态是否已达目标且稳定：首次读取即不符则不等待；相符时再隔一段确认一次。</summary>
@@ -47,12 +78,15 @@ internal static class NumLock
         {
             return false;
         }
-        Thread.Sleep(settleMs);
+        if (settleMs > 0)
+        {
+            Thread.Sleep(settleMs);
+        }
         return IsOn == desired;
     }
 
     /// <summary>发送一次 NumLock 切换（须带扩展键标志），优先 SendInput，失败退回 keybd_event。</summary>
-    private static void Toggle()
+    public static void Toggle()
     {
         var inputs = new Native.INPUT[2];
         inputs[0].type = Native.INPUT_KEYBOARD;

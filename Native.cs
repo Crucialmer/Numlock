@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 
 namespace Numlock;
 
-/// <summary>Win32 P/Invoke 声明</summary>
-internal static class Native
+/// <summary>Win32 P/Invoke 现代化声明（采用 .NET 10 LibraryImport 源生成器）</summary>
+internal static partial class Native
 {
     public const int WH_KEYBOARD_LL = 13;
     public const int WM_KEYDOWN = 0x0100;
@@ -20,8 +20,10 @@ internal static class Native
     public const uint INPUT_KEYBOARD = 1;
     public const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     public const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    public const int DWMWA_SYSTEMBACKDROP_TYPE = 38;
     public const int DWMWCP_ROUND = 2;
     public const int DWMWCP_DONOTROUND = 1;
+    public const int DWMSBT_TRANSIENTWINDOW = 3; // 亚克力/瞬态悬浮材质 (Acrylic)
     public const int SM_CXSMICON = 49;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -45,20 +47,21 @@ internal static class Native
 
     internal delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern IntPtr SetWindowsHookExW(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowsHookExW", SetLastError = true)]
+    public static partial IntPtr SetWindowsHookExW(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern bool UnhookWindowsHookEx(IntPtr hhk);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool UnhookWindowsHookEx(IntPtr hhk);
 
-    [DllImport("user32.dll")]
-    public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-    public static extern IntPtr GetModuleHandleW(string? lpModuleName);
+    [LibraryImport("kernel32.dll", EntryPoint = "GetModuleHandleW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial IntPtr GetModuleHandleW(string? lpModuleName);
 
-    [DllImport("user32.dll")]
-    public static extern short GetKeyState(int nVirtKey);
+    [LibraryImport("user32.dll")]
+    public static partial short GetKeyState(int nVirtKey);
 
     // 注意：INPUT 的联合体必须带 MOUSEINPUT 才能凑满 x64 下 40 字节，
     // 否则 SendInput 返回 0（ERROR_INVALID_PARAMETER）。
@@ -106,23 +109,27 @@ internal static class Native
         public INPUTUNION u;
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial uint SendInput(uint nInputs, [In] INPUT[] pInputs, int cbSize);
 
-    [DllImport("user32.dll")]
-    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    [LibraryImport("user32.dll")]
+    public static partial void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
-    [DllImport("user32.dll")]
-    public static extern bool DestroyIcon(IntPtr hIcon);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool DestroyIcon(IntPtr hIcon);
 
-    [DllImport("user32.dll")]
-    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-    [DllImport("user32.dll")]
-    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
-    [DllImport("user32.dll")]
-    public static extern bool IsWindowVisible(IntPtr hWnd);
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindowVisible(IntPtr hWnd);
 
     public static readonly IntPtr HWND_TOPMOST = new(-1);
     public const uint SWP_NOSIZE = 0x0001;
@@ -135,14 +142,23 @@ internal static class Native
     public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
     public const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
 
-    [DllImport("user32.dll")]
-    public static extern int GetSystemMetrics(int nIndex);
+    [LibraryImport("user32.dll")]
+    public static partial int GetSystemMetrics(int nIndex);
 
-    [DllImport("user32.dll")]
-    public static extern IntPtr WindowFromPoint(Point p);
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct POINT
+    {
+        public int X;
+        public int Y;
+    }
 
-    [DllImport("user32.dll")]
-    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [LibraryImport("user32.dll", EntryPoint = "WindowFromPoint")]
+    private static partial IntPtr WindowFromPointApi(POINT p);
+
+    public static IntPtr WindowFromPoint(Point p) => WindowFromPointApi(new POINT { X = p.X, Y = p.Y });
+
+    [LibraryImport("user32.dll")]
+    public static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     /// <summary>屏幕点上是否为当前进程自己的窗口（自检注入点击前的安全校验：绝不点到别的窗口上）。</summary>
     public static bool PointIsOwnWindow(Point p)
@@ -215,21 +231,28 @@ internal static class Native
         u = new INPUTUNION { mi = new MOUSEINPUT { dx = dx, dy = dy, dwFlags = flags } },
     };
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmSetWindowAttribute(IntPtr hwnd, int attribute, in int value, int size);
 
     /// <summary>尝试为窗口启用 DWM 圆角（仅 Win11+ 生效）；返回是否成功。</summary>
     public static bool TryRoundCorners(IntPtr hwnd)
     {
         int v = DWMWCP_ROUND;
-        return DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref v, sizeof(int)) == 0;
+        return DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, in v, sizeof(int)) == 0;
     }
 
     /// <summary>关闭 DWM 圆角（子菜单用：左侧要与父面板拼成一条直边，圆角改由自绘 Region 只做右侧）。</summary>
     public static void TryDisableRoundCorners(IntPtr hwnd)
     {
         int v = DWMWCP_DONOTROUND;
-        _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref v, sizeof(int));
+        _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, in v, sizeof(int));
+    }
+
+    /// <summary>尝试为窗口开启亚克力/瞬态毛玻璃材质（Win11 22H2+）。</summary>
+    public static bool TrySetTransientBackdrop(IntPtr hwnd)
+    {
+        int v = DWMSBT_TRANSIENTWINDOW;
+        return DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, in v, sizeof(int)) == 0;
     }
 
     /// <summary>取窗口所在显示器的 DPI（Win10 1607+；旧系统上会抛 EntryPointNotFoundException，调用方兜底）。</summary>
@@ -238,19 +261,19 @@ internal static class Native
     /// <summary>按指定 DPI 取系统度量（Win10 1607+；用于“任务栏所在显示器”的小图标尺寸）。</summary>
     public static int GetSystemMetricsForDpi(int nIndex, uint dpi) => GetSystemMetricsForDpiApi(nIndex, dpi);
 
-    [DllImport("user32.dll")]
-    private static extern uint GetDpiForWindowApi(IntPtr hwnd);
+    [LibraryImport("user32.dll", EntryPoint = "GetDpiForWindow")]
+    private static partial uint GetDpiForWindowApi(IntPtr hwnd);
 
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetricsForDpiApi(int nIndex, uint dpi);
+    [LibraryImport("user32.dll", EntryPoint = "GetSystemMetricsForDpi")]
+    private static partial int GetSystemMetricsForDpiApi(int nIndex, uint dpi);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern IntPtr FindWindowW(string? lpClassName, string? lpWindowName);
+    [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    public static partial IntPtr FindWindowW(string? lpClassName, string? lpWindowName);
 
     /// <summary>设置窗口沉浸式深色模式（影响 DWM 绘制的边框/阴影色调）。</summary>
     public static void SetImmersiveDarkMode(IntPtr hwnd, bool dark)
     {
         int v = dark ? 1 : 0;
-        _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref v, sizeof(int));
+        _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, in v, sizeof(int));
     }
 }

@@ -12,7 +12,7 @@ internal sealed class TrayApp : ApplicationContext
     internal AppConfig Config { get; }
     internal NotifyIcon Tray { get; }
     internal ContextMenuStrip Menu { get; }
-    internal bool HookInstalled => _hookHandle != IntPtr.Zero;
+    internal bool HookInstalled => _hookGuard.HookInstalled;
 
     /// <summary>macOS 风格菜单渲染器（菜单与子菜单共用）。</summary>
     internal MacMenuRenderer MenuRenderer { get; }
@@ -50,11 +50,8 @@ internal sealed class TrayApp : ApplicationContext
     private ConfigLoadStatus _configLoadStatus; // 配置读取结果：损坏/读失败时提示一次
     private bool _configBackupPending;          // 启动时配置未能读取：首次保存前先尽力留底
     private bool _enforceFailureNotified;       // 看护失败只提示一次（成功后退避复位）
-    private bool _hookInstallFailed;            // 钩子安装失败后不再重试/重复提示
-    private long _lastHookRebuildMs;            // 上次钩子安装时刻（60s 周期重挂自愈用）
     private bool _shuttingDown;
-    private IntPtr _hookHandle;
-    private Native.LowLevelKeyboardProc? _hookProc;
+    private readonly KeyboardHookGuard _hookGuard;
     private EventWaitHandle? _showEvent;
     private EventWaitHandle? _ackEvent;      // 首实例确认“已在运行”后 Set，第二实例据此安静退出
     private Thread? _showEventThread;
@@ -88,6 +85,7 @@ internal sealed class TrayApp : ApplicationContext
         _ackEvent = ackEvent;
         Config = AppConfig.Load(out _configLoadStatus);
         _configBackupPending = _configLoadStatus == ConfigLoadStatus.ReadError;
+        _hookGuard = new KeyboardHookGuard(() => Config.EnforceNumLock, ShowBalloon);
 
         // 菜单与渲染器先建：项的度量（内边距/边距）必须在加入菜单之前设好，
         // 这样菜单的自适应尺寸会一次算对（加进去之后再改会留下过时宽度）。
@@ -836,6 +834,7 @@ internal sealed class TrayApp : ApplicationContext
             bool rounded = !isSubmenu && Native.TryRoundCorners(dd.Handle);
             MenuRenderer.SetDwmCorners(dd, rounded);
             Native.SetImmersiveDarkMode(dd.Handle, MenuRenderer.Dark);
+            Native.TrySetTransientBackdrop(dd.Handle);
             if (!rounded)
             {
                 ApplyRoundedRegion(dd);
@@ -966,93 +965,15 @@ internal sealed class TrayApp : ApplicationContext
         Menu.Invalidate();
     }
 
-    /// <summary>
-    /// 低级键盘钩子（按需安装）：保持常开时吞掉物理 NumLock 的按下与抬起（放行注入事件，
-    /// 否则自身的恢复注入也会被吞）；软件侧切换由 300ms 看护兜底。
-    /// 未启用“保持常开”时不挂钩子，系统键盘不受本进程影响。
-    /// </summary>
-    private void EnsureHook()
-    {
-        if (_hookHandle != IntPtr.Zero || _hookInstallFailed)
-        {
-            return;
-        }
-        _hookProc ??= HookCallback; // 单一委托终身持有（防 GC），可重复用于重挂
-        _hookHandle = Native.SetWindowsHookExW(Native.WH_KEYBOARD_LL, _hookProc, Native.GetModuleHandleW(null), 0);
-        if (_hookHandle == IntPtr.Zero)
-        {
-            _hookInstallFailed = true; // 降级为轮询纠偏（本会话不再自动重试、不重复提示）
-            ShowBalloon("键盘拦截未生效", "低级键盘钩子安装失败，已降级为轮询纠偏（按键可能闪断）。", ToolTipIcon.Warning);
-        }
-        else
-        {
-            _lastHookRebuildMs = Environment.TickCount64;
-        }
-    }
+    private void EnsureHook() => _hookGuard.EnsureHook();
 
-    /// <summary>卸载键盘钩子（关闭“保持常开”/退出/周期重挂时）；同时清零失败账，允许下次启用重新尝试。</summary>
-    private void UninstallHook()
-    {
-        _hookInstallFailed = false;
-        if (_hookHandle == IntPtr.Zero)
-        {
-            return;
-        }
-        _ = Native.UnhookWindowsHookEx(_hookHandle);
-        // 卸载失败即视同钩子已不在（API 合同）；委托由 _hookProc 终身持有，无需清理
-        _hookHandle = IntPtr.Zero;
-    }
+    private void UninstallHook() => _hookGuard.UninstallHook();
 
-    /// <summary>60s 周期重挂：Windows 对超时的低级钩子会静默摘除且不通知应用，定期重挂实现自愈；
-    /// 重挂间隙的按键由 300ms 看护兜底。</summary>
-    private void RebuildHookIfDue()
-    {
-        if (_hookHandle == IntPtr.Zero || Environment.TickCount64 - _lastHookRebuildMs < HookRebuildIntervalMs)
-        {
-            return;
-        }
-        UninstallHook();
-        EnsureHook();
-    }
-
-    private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
-    {
-        try
-        {
-            if (nCode >= 0 && Config.EnforceNumLock)
-            {
-                int msg = wParam.ToInt32();
-                // 廉价短路：先只读 4 字节的 vkCode（偏移 0，x86/x64 一致），非 NumLock 直接放行
-                if (Marshal.ReadInt32(lParam) == Native.VK_NUMLOCK)
-                {
-                    var kb = Marshal.PtrToStructure<Native.KBDLLHOOKSTRUCT>(lParam);
-                    if (IsSwallowTarget(msg, kb.vkCode, kb.flags))
-                    {
-                        return (IntPtr)1; // 吞掉物理 NumLock 键
-                    }
-                }
-            }
-        }
-        catch
-        {
-        }
-        return Native.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
-    }
+    private void RebuildHookIfDue() => _hookGuard.RebuildHookIfDue();
 
     /// <summary>吞键判定（抽成纯函数便于自检断言）：物理 NumLock 的按下/抬起一律拦截，注入事件放行。</summary>
-    internal static bool IsSwallowTarget(int msg, uint vkCode, uint flags)
-    {
-        if (vkCode != Native.VK_NUMLOCK)
-        {
-            return false;
-        }
-        if (msg != Native.WM_KEYDOWN && msg != Native.WM_SYSKEYDOWN
-            && msg != Native.WM_KEYUP && msg != Native.WM_SYSKEYUP)
-        {
-            return false;
-        }
-        return (flags & Native.LLKHF_INJECTED) == 0;
-    }
+    internal static bool IsSwallowTarget(int msg, uint vkCode, uint flags) =>
+        KeyboardHookGuard.IsSwallowTarget(msg, vkCode, flags);
 
     private static void ShowAbout()
     {
@@ -1173,6 +1094,7 @@ internal sealed class TrayApp : ApplicationContext
         if (disposing)
         {
             Shutdown();
+            _hookGuard.Dispose();
         }
         base.Dispose(disposing);
     }
