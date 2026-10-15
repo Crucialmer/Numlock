@@ -10,7 +10,7 @@
     <AssemblyName>Numlock</AssemblyName>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>assets/Numlock.ico</ApplicationIcon>
-    <Version>1.5.3</Version>
+    <Version>1.5.4</Version>
     <Authors>Crucialmer</Authors>
     <Product>Numlock</Product>
     <Description>在系统托盘显示数字小键盘（NumLock）状态，并支持保持常开</Description>
