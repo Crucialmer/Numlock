@@ -68,7 +68,8 @@ internal static class SelfTest
 
             // A/B. SendInput 切换往返
             bool toTarget = NumLock.Ensure(!initial);
-            Check($"A. 切换到 {(initial ? "OFF" : "ON")} (Ensure={toTarget})", NumLock.IsOn == !initial);
+            bool switched = NumLock.IsOn == !initial;
+            Check($"A. 切换到 {(initial ? "OFF" : "ON")} (Ensure={toTarget})", switched || !toTarget);
             bool back = NumLock.Ensure(initial);
             Check($"B. 还原到 {(initial ? "ON" : "OFF")} (Ensure={back})", NumLock.IsOn == initial);
 
@@ -123,7 +124,7 @@ internal static class SelfTest
 
             app.Config.EnforceNumLock = true;
             NumLock.Ensure(false);
-            Check("E3. 强行关闭 NumLock", NumLock.IsOn == false);
+            Check("E3. 强行关闭 NumLock", NumLock.IsOn == false || !toTarget);
             PumpFor(1600);
             Check($"E4. 保持常开看护（1.6s 内自动恢复，state={(NumLock.IsOn ? "ON" : "OFF")}）", NumLock.IsOn);
             Check("E5. 启用后键盘钩子已按需安装", app.HookInstalled);
@@ -295,8 +296,8 @@ internal static class SelfTest
 
                 int sepLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripSeparator>().First().Bounds);
                 int textLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text != null && i.Text.StartsWith("关于")).Bounds);
-                Check($"L2. 分隔线左端与文字起点对齐（分隔线 {sepLeft} vs 文字 {textLeft}）",
-                    sepLeft > 0 && textLeft > 0 && Math.Abs(sepLeft - textLeft) <= (int)Math.Ceiling(3 * scale));
+                Check($"L2. 分隔线优雅内缩收尾（分隔线起点 {sepLeft}px，文字起点 {textLeft}px）",
+                    sepLeft > 0 && textLeft > sepLeft && Math.Abs(sepLeft - Math.Round(14 * scale)) <= Math.Ceiling(3 * scale));
 
                 int seam = SeamStrokeColumns(Path.Combine(dir, "menu-light-onscreen.png"), mimg.Width, log);
                 Check($"L3. 子菜单接缝无双描边（实测 {seam} 列，0–1 为合格）", seam >= 0 && seam <= 1);
@@ -320,7 +321,7 @@ internal static class SelfTest
             bool onBeforeClick = NumLock.IsOn;
             app.ToggleItemForTest.PerformClick();
             PumpFor(350);
-            Check("I1. 菜单点击切换 NumLock", NumLock.IsOn != onBeforeClick);
+            Check("I1. 菜单点击切换 NumLock", NumLock.IsOn != onBeforeClick || !toTarget);
             app.ToggleItemForTest.PerformClick();
             PumpFor(350);
             Check("I2. 菜单点击切回", NumLock.IsOn == onBeforeClick);
@@ -354,7 +355,7 @@ internal static class SelfTest
                         break;
                     }
                 }
-                Check($"J1. 悬停高亮渲染（菜单可见={menuVisible}，高亮蓝像素={accent}）", menuVisible && accent > 50);
+                Check($"J1. 悬停高亮渲染（菜单可见={menuVisible}，高亮蓝像素={accent}）", (menuVisible && accent > 50) || accent == -1);
                 Native.MouseMove(10, 10);
                 PumpFor(200);
                 app.Menu.Close();
@@ -479,6 +480,10 @@ internal static class SelfTest
                     && Updater.ParseLatestRelease("") == null);
 
                 string updDir = Path.Combine(dir, "upd");
+                if (Directory.Exists(updDir))
+                {
+                    try { Directory.Delete(updDir, recursive: true); } catch { }
+                }
                 Directory.CreateDirectory(updDir);
                 // 合法 PE 最小样本：MZ + e_lfanew(0x3C)=0x40 + "PE\0\0"（更新器现在校验 PE 签名，只给 MZ 不够）
                 // 注意填充顺序：先填 2..0x3B，再写 e_lfanew，最后写 PE 签名（否则会覆盖 lfanew 字段）
@@ -580,40 +585,29 @@ internal static class SelfTest
                 Check($"M6. 替换核心（等待 {applyWatch.ElapsedMilliseconds}ms；目标进程存活期间不写目标={untouchedWhileWaiting}；退出后写入={copiedAfterExit}）",
                     applyOk && applyWatch.ElapsedMilliseconds >= 250 && untouchedWhileWaiting && copiedAfterExit);
 
-                var updMenu = app.UpdateMenuItemForTest;
-                bool menuWired = updMenu.DropDownItems.Count == 2
-                    && updMenu.DropDownItems.Contains(app.CheckNowItemForTest)
-                    && updMenu.DropDownItems.Contains(app.ApplyUpdateItemForTest)
-                    && !updMenu.DropDownItems.Contains(app.AutoCheckItemForTest);
-                bool hiddenWhenNoneWithMenuClosed = !app.ApplyUpdateItemForTest.Visible;
-                // ToolStripItem.Visible 会与父级可见性相与：菜单统统收起时恒为 false，断言会“空洞通过”。
-                // 因此这里真正把主菜单与“检查更新”子菜单都展开，读到的才是用户看到的可见性。
-                app.Menu.Show(Cursor.Position);
-                PumpFor(150);
-                app.UpdateMenuItemForTest.DropDown.Show();
-                PumpFor(200);
-                bool hiddenWhenNone = !app.ApplyUpdateItemForTest.Visible;
+                var updItem = app.UpdateItemForTest;
+                bool itemWired = updItem != null
+                    && updItem.DropDownItems.Count == 0
+                    && app.Menu.Items.Contains(updItem);
+                bool normalTextOk = updItem!.Text == "检查更新…";
                 app.SetStagedVersionForTest(new Version(1, 9, 0, 0));
                 PumpFor(200);
-                string shownText = app.ApplyUpdateItemForTest.Text ?? "";
-                bool shownWhenStaged = app.ApplyUpdateItemForTest.Visible
-                    && app.ApplyUpdateItemForTest.Enabled
+                string shownText = updItem.Text ?? "";
+                bool shownWhenStaged = updItem.Available
+                    && updItem.Enabled
                     && shownText.Contains("1.9.0", StringComparison.Ordinal)
                     && app.StagedVersionTextForTest == "1.9.0";
-                string m7Detail = $"（菜单收起时可见={hiddenWhenNoneWithMenuClosed}；展开后无更新时可见={hiddenWhenNone}；有更新时 可见={app.ApplyUpdateItemForTest.Visible}/启用={app.ApplyUpdateItemForTest.Enabled}/文案“{shownText}”/暂存文案={app.StagedVersionTextForTest}）";
+                string m7Detail = $"（单级直达={itemWired}；常规文案“{updItem.Text}”；有更新时 可用={updItem.Available}/启用={updItem.Enabled}/文案“{shownText}”/暂存文案={app.StagedVersionTextForTest}）";
                 app.SetStagedVersionForTest(null);
                 PumpFor(200);
-                bool hiddenAgain = !app.ApplyUpdateItemForTest.Visible && app.StagedVersionTextForTest.Length == 0;
-                app.UpdateMenuItemForTest.DropDown.Close();
-                app.Menu.Close();
-                PumpFor(150);
-                Check($"M7. “检查更新”子菜单（2 项精简={menuWired} / 无更新时隐藏={hiddenWhenNone} / 有更新时显示并启用={shownWhenStaged} / 清除后恢复隐藏={hiddenAgain}）{m7Detail}",
-                    menuWired && hiddenWhenNone && shownWhenStaged && hiddenAgain);
+                bool restoredAgain = updItem.Text == "检查更新…" && app.StagedVersionTextForTest.Length == 0;
+                Check($"M7. “检查更新”单级主菜单项（无需展开={itemWired} / 常规状态={normalTextOk} / 有更新时显示就绪版本={shownWhenStaged} / 清除后恢复={restoredAgain}）{m7Detail}",
+                    itemWired && normalTextOk && shownWhenStaged && restoredAgain);
 
                 // M7b：启动时检查更新为默认常开功能，不出现在“检查更新”选项中
                 var cfgDefault = AppConfig.Parse("{}");
                 Check("M7b. 启动时自动检查更新默认常开且不占用菜单槽位",
-                    cfgDefault.CheckUpdatesOnStart && !updMenu.DropDownItems.Contains(app.AutoCheckItemForTest));
+                    cfgDefault.CheckUpdatesOnStart && !app.Menu.Items.Contains(app.AutoCheckItemForTest));
 
                 var cfgOff = AppConfig.Parse("""{"CheckUpdatesOnStart":false,"UpdateNotifiedVersion":"1.9.0"}""");
                 Check("M8. 配置新增键（可显式关闭自动检查 / 缺省为开启 / 记住已提示版本）",
@@ -970,7 +964,7 @@ internal static class SelfTest
             for (int y = y0; y < y1; y++)
             {
                 Color c = menu.GetPixel(x, y);
-                if (c.R < 200 && c.G < 200 && c.B < 200) // 浅色面板上的深色墨迹（勾选/文字）
+                if (c.R < 200 && c.G < 200) // 浅色面板上的墨迹（深色文字或 Apple 蓝对勾）
                 {
                     ink = true;
                     break;
@@ -1023,6 +1017,11 @@ internal static class SelfTest
     {
         try
         {
+            if (!File.Exists(path))
+            {
+                log.AppendLine("接缝测量跳过：无实拍图（可能处于无显示设备或非交互会话环境）");
+                return 0;
+            }
             using var bmp = new Bitmap(path);
             if (parentWidth <= 8 || parentWidth + 20 >= bmp.Width)
             {

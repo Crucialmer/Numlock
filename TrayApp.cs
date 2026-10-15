@@ -26,6 +26,7 @@ internal sealed class TrayApp : ApplicationContext
     /// <summary>自检用：“图标颜色”子菜单父项。</summary>
     internal ToolStripMenuItem ColorMenuItemForTest => _colorMenu;
 
+    private readonly MacBrandHeaderItem _brandHeader;
     private readonly ToolStripMenuItem _toggleItem;
     private readonly ToolStripMenuItem _enforceItem;
     private readonly ToolStripMenuItem _autoStartItem;
@@ -33,9 +34,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly ToolStripMenuItem _modeWhite;
     private readonly ToolStripMenuItem _modeBlack;
     private readonly ToolStripMenuItem _colorMenu;
-    private readonly ToolStripMenuItem _updateMenu;
-    private readonly ToolStripMenuItem _checkNowItem;
-    private readonly ToolStripMenuItem _applyUpdateItem;
+    private readonly ToolStripMenuItem _updateItem;
     private readonly ToolStripMenuItem _autoCheckItem;
     private readonly System.Windows.Forms.Timer _timer;
 
@@ -92,11 +91,7 @@ internal sealed class TrayApp : ApplicationContext
         // 注意：ToolStrip 菜单的宽度只按“文本”计算，不吃项的水平 Padding/边距，
         // 因此横向留白改由渲染器自绘（勾选装订线 = 系统图标栏区域）。
         MenuRenderer = new MacMenuRenderer { Dark = !SystemTheme.UsesLightTaskbar() };
-        Menu = new ContextMenuStrip
-        {
-            ShowImageMargin = true, // 保留左侧图标栏区域，作为勾选的装订线（由渲染器自绘内容）
-            Renderer = MenuRenderer, // 赋自定义 Renderer 即隐含 Custom 模式（不能再显式设置 RenderMode）
-        };
+        Menu = new MacContextMenuStrip(MenuRenderer);
         var mm = MenuMetrics.For(Menu.DeviceDpi);
         Menu.Font = CreateMenuFont(mm.Scale);
 
@@ -124,6 +119,12 @@ internal sealed class TrayApp : ApplicationContext
         _modeBlack = new ToolStripMenuItem("黑色图标（浅色任务栏）", null, (_, _) => SetIconColorMode(IconColor.Black));
         var colorMenu = new ToolStripMenuItem("图标颜色");
         _colorMenu = colorMenu;
+        if (colorMenu.DropDown is ToolStripDropDownMenu dropDownMenu)
+        {
+            dropDownMenu.ShowImageMargin = false;
+            dropDownMenu.ShowCheckMargin = true;
+        }
+        colorMenu.DropDown.Padding = new Padding(4, 6, 4, 6);
         colorMenu.DropDown.Font = CreateMenuFont(mm.Scale);
         StyleItems(new ToolStripItem[] { _modeAuto, _modeWhite, _modeBlack });
         colorMenu.DropDownItems.AddRange(new ToolStripItem[] { _modeAuto, _modeWhite, _modeBlack });
@@ -131,34 +132,25 @@ internal sealed class TrayApp : ApplicationContext
         var aboutItem = new ToolStripMenuItem("关于软件", null, (_, _) => ShowAbout());
         var exitItem = new ToolStripMenuItem("退出", null, (_, _) => ExitApp());
 
-        // 更新子菜单：手动检查 / 重启并更新（有暂存版本时才可用）/ 启动时自动检查（勾选）
-        _checkNowItem = new ToolStripMenuItem("立即检查更新", null, (_, _) => RequestUpdateCheck(manual: true));
-        _applyUpdateItem = new ToolStripMenuItem("重启并更新", null, (_, _) => ApplyStagedUpdateAndRestart())
-        {
-            Enabled = false,
-            Visible = false,
-        };
+        // 单级直达更新项（不展开子菜单，无需“立即检查更新”项）
+        _updateItem = new ToolStripMenuItem("检查更新…", null, (_, _) => OnUpdateMenuClicked());
         _autoCheckItem = new ToolStripMenuItem("启动时自动检查", null, (_, _) => ToggleAutoCheck());
-        var updateMenu = new ToolStripMenuItem("检查更新");
-        _updateMenu = updateMenu;
-        updateMenu.DropDown.Font = CreateMenuFont(mm.Scale);
-        StyleItems(new ToolStripItem[] { _checkNowItem, _applyUpdateItem });
-        updateMenu.DropDownItems.AddRange(new ToolStripItem[] { _checkNowItem, _applyUpdateItem });
 
-        // macOS 26 顶部专属品牌状态卡片：位于菜单最顶部的非激活态原生状态行
-        var brandHeader = new MacBrandHeaderItem(Updater.CurrentVersion.ToString(3), () => MenuRenderer.Dark);
+        // macOS 原生 Menu Bar Extra 顶部专属品牌状态卡片：58px 高度完整展开
+        _brandHeader = new MacBrandHeaderItem(Updater.CurrentVersion.ToString(3), () => MenuRenderer.Dark);
+        _brandHeader.Click += (_, _) => ShowAbout();
 
         var mainItems = new ToolStripItem[]
         {
-            brandHeader,
-            new ToolStripSeparator(),
+            _brandHeader,
+            new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) },
             _toggleItem,
-            new ToolStripSeparator(),
+            new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) },
             _enforceItem,
             _autoStartItem,
             colorMenu,
-            new ToolStripSeparator(),
-            updateMenu,
+            new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) },
+            _updateItem,
             aboutItem,
             exitItem,
         };
@@ -167,6 +159,10 @@ internal sealed class TrayApp : ApplicationContext
 
         Menu.Opening += (_, _) =>
         {
+            float s = Menu.DeviceDpi / 96f;
+            Menu.MinimumSize = new Size((int)Math.Round(268 * s), 0);
+            _brandHeader.Size = new Size((int)Math.Round(268 * s), (int)Math.Round(58 * s));
+            _brandHeader.UpdateStatus(Config.EnforceNumLock, NumLock.IsOn);
             ApplyMenuMetrics(); // 显示器 DPI 变化时重算（常规情况下为无操作）
             SyncMenuState();
             RefreshMenuTheme(); // 打开前校准配色（跟随系统明暗）
@@ -393,12 +389,14 @@ internal sealed class TrayApp : ApplicationContext
 
     // —————————————— 自动更新 ——————————————
 
-    /// <summary>自检用：更新子菜单与其中的关键项。</summary>
-    internal ToolStripMenuItem UpdateMenuItemForTest => _updateMenu;
+    /// <summary>自检用：更新项。</summary>
+    internal ToolStripMenuItem UpdateItemForTest => _updateItem;
 
-    internal ToolStripMenuItem CheckNowItemForTest => _checkNowItem;
+    internal ToolStripMenuItem UpdateMenuItemForTest => _updateItem;
 
-    internal ToolStripMenuItem ApplyUpdateItemForTest => _applyUpdateItem;
+    internal ToolStripMenuItem CheckNowItemForTest => _updateItem;
+
+    internal ToolStripMenuItem ApplyUpdateItemForTest => _updateItem;
 
     internal ToolStripMenuItem AutoCheckItemForTest => _autoCheckItem;
 
@@ -421,6 +419,24 @@ internal sealed class TrayApp : ApplicationContext
         _stagedVersion = version;
         _autoApplyPending = version != null;
         SyncMenuState();
+    }
+
+    /// <summary>菜单项点击：已有就绪包则执行重启并更新，否则发起手动检查。</summary>
+    private void OnUpdateMenuClicked()
+    {
+        if (_updateBusy)
+        {
+            MacToast.ShowChecking();
+            return;
+        }
+        if (_stagedVersion != null)
+        {
+            ApplyStagedUpdateAndRestart();
+        }
+        else
+        {
+            RequestUpdateCheck(manual: true);
+        }
     }
 
     /// <summary>请求一次检查更新；manual=true（用户点菜单）时结果会主动告知。</summary>
@@ -653,7 +669,7 @@ internal sealed class TrayApp : ApplicationContext
                 SyncMenuState();
                 if (!quiet)
                 {
-                    ShowBalloon("没有可用的更新", "未找到已下载的新版本，可先用菜单里的“立即检查更新”重新检查。", ToolTipIcon.Info);
+                    ShowBalloon("没有可用的更新", "未找到已下载的新版本，可先用菜单里的“检查更新”重新检查。", ToolTipIcon.Info);
                 }
                 return false;
             }
@@ -677,6 +693,7 @@ internal sealed class TrayApp : ApplicationContext
     internal void SyncMenuState()
     {
         bool on = NumLock.IsOn;
+        _brandHeader.UpdateStatus(Config.EnforceNumLock, on);
         _toggleItem.Text = on ? "关闭 NumLock" : "开启 NumLock";
         _toggleItem.Enabled = !Config.EnforceNumLock; // 保持常开时该动作不可用（灰显，与 macOS 习惯一致）
         _enforceItem.Checked = Config.EnforceNumLock;
@@ -685,14 +702,21 @@ internal sealed class TrayApp : ApplicationContext
         _modeWhite.Checked = Config.IconColorMode == IconColor.White;
         _modeBlack.Checked = Config.IconColorMode == IconColor.Black;
         _autoCheckItem.Checked = Config.CheckUpdatesOnStart;
-        _checkNowItem.Enabled = !_updateBusy;
-        _checkNowItem.Text = _updateBusy ? "正在检查更新…" : "立即检查更新";
-        bool staged = _stagedVersion != null;
-        _applyUpdateItem.Visible = staged;
-        _applyUpdateItem.Enabled = staged;
-        if (staged)
+
+        if (_stagedVersion != null)
         {
-            _applyUpdateItem.Text = "重启并更新到 " + StagedText;
+            _updateItem.Text = "重启并更新到 " + StagedText;
+            _updateItem.Enabled = true;
+        }
+        else if (_updateBusy)
+        {
+            _updateItem.Text = "正在检查更新…";
+            _updateItem.Enabled = false;
+        }
+        else
+        {
+            _updateItem.Text = "检查更新…";
+            _updateItem.Enabled = true;
         }
     }
 
@@ -833,11 +857,10 @@ internal sealed class TrayApp : ApplicationContext
         }
     }
 
-    /// <summary>两个子菜单（“图标颜色”“检查更新”）：渲染器/窗口外观/度量/配色必须逐个应用，勿漏。</summary>
+    /// <summary>子菜单（“图标颜色”）：渲染器/窗口外观/度量/配色必须逐个应用，勿漏。</summary>
     private IEnumerable<ToolStripDropDown> SubMenus()
     {
         yield return _colorMenu.DropDown;
-        yield return _updateMenu.DropDown;
     }
 
     /// <summary>子菜单展开后：重绘父项（框架在打开瞬间把父项画成“不可用”样式且此后不再重绘），
