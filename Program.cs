@@ -80,11 +80,9 @@ internal static class Program
             {
                 try
                 {
-                    MessageBox.Show(
-                        "Numlock 已在运行（或正在自检）。\n\n右键系统托盘中的键帽图标可打开菜单。",
-                        "Numlock",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
+                    MacDialog.ShowInfo(
+                        "Numlock 已在运行",
+                        "Numlock 已在后台运行（或正在自检）。\n\n右键系统托盘中的键帽图标可打开菜单。");
                 }
                 catch
                 {

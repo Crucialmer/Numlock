@@ -562,12 +562,10 @@ internal sealed class TrayApp : ApplicationContext
             case UpdateOutcomeStageFailed:
                 if (_updateManualResult)
                 {
-                    MessageBox.Show(
-                        $"发现新版本 {_updateVersionText}（当前 {Updater.CurrentVersion.ToString(3)}），但自动下载失败。\n\n" +
-                        "安装目录可能不可写，或网络中断。可到发布页手动下载：\n" + Updater.PageUrl,
+                    MacDialog.ShowWarning(
                         "检查更新",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                        $"发现新版本 {_updateVersionText}（当前 {Updater.CurrentVersion.ToString(3)}），但自动下载失败。\n\n" +
+                        "安装目录可能不可写，或网络中断。可到发布页手动下载：\n" + Updater.PageUrl);
                 }
                 else if (_updateVersionText.Length > 0 && !string.Equals(Config.UpdateNotifiedVersion, _updateVersionText, StringComparison.Ordinal))
                 {
@@ -978,23 +976,7 @@ internal sealed class TrayApp : ApplicationContext
     private static void ShowAbout()
     {
         string version = typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
-        MessageBox.Show(
-            "Numlock v" + version + "\n\n" +
-            "在系统托盘显示数字小键盘（NumLock）的开关状态：\n" +
-            "· 实心键帽 = 已开启\n" +
-            "· 描边键帽 = 已关闭\n" +
-            "· 右下角绿点 = 保持常开模式\n\n" +
-            "菜单里的动作：\n" +
-            "· 切换 NumLock：打开或关闭 NumLock（开启“保持常开”时此项不可用，需先关闭“保持常开”）\n" +
-            "· 保持常开：NumLock 一直保持开启——拦截键盘上的 NumLock 键，被其他程序关掉也会自动恢复\n" +
-            "· 开机自动启动 / 图标颜色：自启开关与图标配色（默认跟随系统明暗）\n\n" +
-            "双击托盘图标可快速切换 NumLock；右键打开菜单。\n\n" +
-            "检查更新：菜单里的“检查更新”可手动检查；“启动时自动检查”默认开启。\n" +
-            "本工具平时完全离线，只有检查/下载更新时会访问 GitHub。\n\n" +
-            "项目主页：https://github.com/Crucialmer/Numlock",
-            "关于 Numlock",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        MacDialog.ShowAbout(version);
     }
 
     /// <summary>登记当前实例：未处理异常兜底需要一个活着的实例来弹提示。</summary>

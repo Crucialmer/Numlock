@@ -61,7 +61,7 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
     /// <summary>查询某窗口是否已由 DWM 圆角（null 或未记录 = true）。</summary>
     public bool CornersRounded(ToolStrip? strip) => strip == null || !_dwmCorners.TryGetValue(strip, out bool rounded) || rounded;
 
-    private Color Bg => Dark ? Color.FromArgb(255, 36, 36, 38) : Color.FromArgb(255, 246, 246, 248);
+    private Color Bg => Dark ? Color.FromArgb(230, 36, 36, 38) : Color.FromArgb(235, 246, 246, 248);
     private Color Fg => Dark ? Color.FromArgb(255, 245, 245, 247) : Color.FromArgb(255, 29, 29, 31);
     private Color Accent => Dark ? Color.FromArgb(255, 10, 132, 255) : Color.FromArgb(255, 0, 122, 255);
     private Color PressedAccent => Dark ? Color.FromArgb(255, 8, 108, 212) : Color.FromArgb(255, 0, 106, 224);
