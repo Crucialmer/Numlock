@@ -35,9 +35,8 @@ internal sealed class MacToast : Form
     private readonly Action? _secondaryAction;
     private readonly bool _hasButtons;
     private readonly bool _dark;
-    private readonly float _scale;
-
-    private readonly int _cornerRadius;
+    private float _scale;
+    private int _cornerRadius;
     private RectangleF _closeBtnRect;
     private RectangleF _primaryBtnRect;
     private RectangleF _secondaryBtnRect;
@@ -112,21 +111,7 @@ internal sealed class MacToast : Form
         int margin = (int)(16 * _scale);
         Location = new Point(wa.Right - width - margin, wa.Bottom - baseHeight - margin);
 
-        HandleCreated += (_, _) =>
-        {
-            try
-            {
-                bool rounded = Native.TryRoundCorners(Handle);
-                Native.SetImmersiveDarkMode(Handle, _dark);
-                Native.TrySetTransientBackdrop(Handle);
-                if (!rounded)
-                {
-                    using var path = Gfx.RoundedRect(new RectangleF(0, 0, Width, Height), _cornerRadius);
-                    Region = new Region(path);
-                }
-            }
-            catch { }
-        };
+        HandleCreated += (_, _) => UpdateWindowRegion();
 
         // 淡入动画
         _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
@@ -158,6 +143,36 @@ internal sealed class MacToast : Form
         }
     }
 
+    private void UpdateWindowRegion()
+    {
+        try
+        {
+            bool rounded = Native.TryRoundCorners(Handle);
+            Native.SetImmersiveDarkMode(Handle, _dark);
+            Native.TrySetTransientBackdrop(Handle);
+            if (!rounded)
+            {
+                using var path = Gfx.RoundedRect(new RectangleF(0, 0, Width, Height), _cornerRadius);
+                Region = new Region(path);
+            }
+            else
+            {
+                Region = null;
+            }
+        }
+        catch { }
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        _scale = e.DeviceDpiNew / 96f;
+        _cornerRadius = (int)(14 * _scale);
+        Bounds = e.SuggestedRectangle;
+        UpdateWindowRegion();
+        Invalidate();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
@@ -184,10 +199,9 @@ internal sealed class MacToast : Form
         }
 
         using var appNameFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
-        var appNameSize = TextRenderer.MeasureText(g, "Numlock", appNameFont);
-        TextRenderer.DrawText(g, "Numlock", appNameFont,
-            new Rectangle(padX + miniIconSize + (int)(6 * _scale), topY - 1, appNameSize.Width, miniIconSize + 2),
-            FgColor, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+        var appNameSize = g.MeasureString("Numlock", appNameFont);
+        DrawStringLeft(g, "Numlock", appNameFont, FgColor,
+            new RectangleF(padX + miniIconSize + (int)(6 * _scale), topY - 1, appNameSize.Width, miniIconSize + 2));
 
         string catText = _type switch
         {
@@ -195,10 +209,9 @@ internal sealed class MacToast : Form
             _ => "状态提醒",
         };
         using var catFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        int catX = padX + miniIconSize + (int)(6 * _scale) + appNameSize.Width + (int)(6 * _scale);
-        TextRenderer.DrawText(g, "· " + catText, catFont,
-            new Rectangle(catX, topY - 1, (int)(100 * _scale), miniIconSize + 2),
-            SecondaryFg, TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+        int catX = padX + miniIconSize + (int)(6 * _scale) + (int)appNameSize.Width + (int)(4 * _scale);
+        DrawStringLeft(g, "· " + catText, catFont, SecondaryFg,
+            new RectangleF(catX, topY - 1, (int)(120 * _scale), miniIconSize + 2));
 
         // 右上角小关闭按钮
         int closeBtnSize = (int)(14 * _scale);
@@ -220,35 +233,32 @@ internal sealed class MacToast : Form
         int iconSize = (int)(32 * _scale);
         DrawStatusIcon(g, padX, bodyY, iconSize);
 
-        // 4. 文字（右侧）
+        // 4. 文字（右侧，层次丰富的排版阶梯）
         int textX = padX + iconSize + (int)(12 * _scale);
         int textW = w - textX - padX;
 
-        using var titleFont = new Font("Microsoft YaHei", 16f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
-        var titleSize = TextRenderer.MeasureText(g, _title, titleFont);
-        TextRenderer.DrawText(g, _title, titleFont,
-            new Rectangle(textX, bodyY - (int)(1 * _scale), textW, titleSize.Height),
-            FgColor, TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.WordEllipsis);
+        using var titleFont = new Font("Microsoft YaHei", 14f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        DrawStringLeft(g, _title, titleFont, FgColor,
+            new RectangleF(textX, bodyY, textW, 20 * _scale));
 
-        int msgY = bodyY + titleSize.Height + (int)(3 * _scale);
-        using var msgFont = new Font("Microsoft YaHei", 16f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        TextRenderer.DrawText(g, _message, msgFont,
-            new Rectangle(textX, msgY, textW, (int)(42 * _scale)),
-            SecondaryFg, TextFormatFlags.Left | TextFormatFlags.WordBreak);
+        int msgY = bodyY + (int)(22 * _scale);
+        using var msgFont = new Font("Microsoft YaHei", 12.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        DrawStringLeft(g, _message, msgFont, SecondaryFg,
+            new RectangleF(textX, msgY, textW, 46 * _scale), wordBreak: true);
 
         // 5. 交互按钮（底部）
         if (_hasButtons)
         {
             int btnH = (int)(28 * _scale);
             int btnY = h - (int)(12 * _scale) - btnH;
-            using var btnFont = new Font("Microsoft YaHei", 14f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+            using var btnFont = new Font("Microsoft YaHei", 13f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
 
             if (!string.IsNullOrEmpty(_secondaryBtnText))
             {
-                var priSize = TextRenderer.MeasureText(g, _primaryBtnText, btnFont);
-                var secSize = TextRenderer.MeasureText(g, _secondaryBtnText, btnFont);
-                int priW = Math.Max((int)(72 * _scale), priSize.Width + (int)(18 * _scale));
-                int secW = Math.Max((int)(60 * _scale), secSize.Width + (int)(18 * _scale));
+                var priSize = g.MeasureString(_primaryBtnText, btnFont);
+                var secSize = g.MeasureString(_secondaryBtnText, btnFont);
+                int priW = Math.Max((int)(72 * _scale), (int)priSize.Width + (int)(18 * _scale));
+                int secW = Math.Max((int)(60 * _scale), (int)secSize.Width + (int)(18 * _scale));
 
                 int priX = w - padX - priW;
                 int secX = priX - (int)(8 * _scale) - secW;
@@ -262,9 +272,7 @@ internal sealed class MacToast : Form
                     using var secBrush = new SolidBrush(secBg);
                     g.FillPath(secBrush, secPath);
                 }
-                TextRenderer.DrawText(g, _secondaryBtnText, btnFont,
-                    new Rectangle(secX, btnY, secW, btnH),
-                    FgColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                DrawStringCenter(g, _secondaryBtnText, btnFont, FgColor, _secondaryBtnRect);
 
                 _primaryBtnRect = new RectangleF(priX, btnY, priW, btnH);
                 Color priBg = _primaryPressed
@@ -275,14 +283,12 @@ internal sealed class MacToast : Form
                     using var priBrush = new SolidBrush(priBg);
                     g.FillPath(priBrush, priPath);
                 }
-                TextRenderer.DrawText(g, _primaryBtnText, btnFont,
-                    new Rectangle(priX, btnY, priW, btnH),
-                    Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                DrawStringCenter(g, _primaryBtnText, btnFont, Color.White, _primaryBtnRect);
             }
             else
             {
-                var priSize = TextRenderer.MeasureText(g, _primaryBtnText, btnFont);
-                int priW = Math.Max((int)(66 * _scale), priSize.Width + (int)(20 * _scale));
+                var priSize = g.MeasureString(_primaryBtnText, btnFont);
+                int priW = Math.Max((int)(66 * _scale), (int)priSize.Width + (int)(20 * _scale));
                 int priX = w - padX - priW;
 
                 _primaryBtnRect = new RectangleF(priX, btnY, priW, btnH);
@@ -294,9 +300,7 @@ internal sealed class MacToast : Form
                     using var priBrush = new SolidBrush(priBg);
                     g.FillPath(priBrush, priPath);
                 }
-                TextRenderer.DrawText(g, _primaryBtnText, btnFont,
-                    new Rectangle(priX, btnY, priW, btnH),
-                    Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                DrawStringCenter(g, _primaryBtnText, btnFont, Color.White, _primaryBtnRect);
             }
         }
 
@@ -497,6 +501,32 @@ internal sealed class MacToast : Form
         _autoCloseTimer?.Dispose();
         _animTimer?.Dispose();
         base.OnFormClosed(e);
+    }
+
+    private static void DrawStringCenter(Graphics g, string text, Font font, Color color, RectangleF rect, bool wordBreak = false)
+    {
+        using var brush = new SolidBrush(color);
+        using var sf = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center,
+            Trimming = StringTrimming.EllipsisCharacter,
+            FormatFlags = wordBreak ? 0 : StringFormatFlags.NoWrap
+        };
+        g.DrawString(text, font, brush, rect, sf);
+    }
+
+    private static void DrawStringLeft(Graphics g, string text, Font font, Color color, RectangleF rect, bool wordBreak = false)
+    {
+        using var brush = new SolidBrush(color);
+        using var sf = new StringFormat
+        {
+            Alignment = StringAlignment.Near,
+            LineAlignment = StringAlignment.Center,
+            Trimming = StringTrimming.EllipsisCharacter,
+            FormatFlags = wordBreak ? 0 : StringFormatFlags.NoWrap
+        };
+        g.DrawString(text, font, brush, rect, sf);
     }
 
     // ——— 静态便捷 API ———

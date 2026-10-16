@@ -32,8 +32,8 @@ internal sealed class MacUpdateWindow : Form
     private static MacUpdateWindow? s_instance;
 
     private readonly bool _dark;
-    private readonly float _scale;
-    private readonly int _cornerRadius;
+    private float _scale;
+    private int _cornerRadius;
 
     private UpdateState _state;
     private string _currentVersion;
@@ -114,21 +114,7 @@ internal sealed class MacUpdateWindow : Form
             wa.Top + Math.Max(0, (wa.Height - height) / 2));
 
         // DWM 圆角与亚克力毛玻璃
-        HandleCreated += (_, _) =>
-        {
-            try
-            {
-                bool rounded = Native.TryRoundCorners(Handle);
-                Native.SetImmersiveDarkMode(Handle, _dark);
-                Native.TrySetTransientBackdrop(Handle);
-                if (!rounded)
-                {
-                    using var path = Gfx.RoundedRect(new RectangleF(0, 0, Width, Height), _cornerRadius);
-                    Region = new Region(path);
-                }
-            }
-            catch { }
-        };
+        HandleCreated += (_, _) => UpdateWindowRegion();
 
         // 淡入动画
         _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
@@ -165,6 +151,36 @@ internal sealed class MacUpdateWindow : Form
         {
             _spinnerTimer.Start();
         }
+    }
+
+    private void UpdateWindowRegion()
+    {
+        try
+        {
+            bool rounded = Native.TryRoundCorners(Handle);
+            Native.SetImmersiveDarkMode(Handle, _dark);
+            Native.TrySetTransientBackdrop(Handle);
+            if (!rounded)
+            {
+                using var path = Gfx.RoundedRect(new RectangleF(0, 0, Width, Height), _cornerRadius);
+                Region = new Region(path);
+            }
+            else
+            {
+                Region = null;
+            }
+        }
+        catch { }
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        _scale = e.DeviceDpiNew / 96f;
+        _cornerRadius = (int)(16 * _scale);
+        Bounds = e.SuggestedRectangle;
+        UpdateWindowRegion();
+        Invalidate();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

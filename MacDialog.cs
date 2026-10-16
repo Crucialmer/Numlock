@@ -26,14 +26,14 @@ internal sealed class MacDialog : Form
     private readonly bool _dark;
 
     // 绘制缓存
-    private readonly float _scale;
-    private readonly int _iconSize;
-    private readonly int _btnHeight;
-    private readonly int _btnMinWidth;
-    private readonly int _padding;
-    private readonly int _cornerRadius;
-    private readonly int _titleFontSize;
-    private readonly int _bodyFontSize;
+    private float _scale;
+    private int _iconSize;
+    private int _btnHeight;
+    private int _btnMinWidth;
+    private int _padding;
+    private int _cornerRadius;
+    private int _titleFontSize;
+    private int _bodyFontSize;
 
     private bool _primaryHover;
     private bool _primaryPressed;
@@ -70,17 +70,50 @@ internal sealed class MacDialog : Form
         _dark = !SystemTheme.UsesLightTaskbar();
         _hasSecondary = buttons != DialogButtons.Ok;
 
-        // DPI 自适应
         _scale = DeviceDpi / 96f;
+        UpdateMetrics();
+        SetupForm();
+    }
+
+    private void UpdateMetrics()
+    {
         _iconSize = (int)(44 * _scale);
         _btnHeight = (int)(32 * _scale);
         _btnMinWidth = (int)(76 * _scale);
         _padding = (int)(24 * _scale);
         _cornerRadius = (int)(14 * _scale);
-        _titleFontSize = (int)(18 * _scale);
-        _bodyFontSize = (int)(16 * _scale);
+        _titleFontSize = (int)(17 * _scale);
+        _bodyFontSize = (int)(13.5f * _scale);
+    }
 
-        SetupForm();
+    private void UpdateWindowRegion()
+    {
+        try
+        {
+            bool rounded = Native.TryRoundCorners(Handle);
+            Native.SetImmersiveDarkMode(Handle, _dark);
+            Native.TrySetTransientBackdrop(Handle);
+            if (!rounded)
+            {
+                using var path = Gfx.RoundedRect(new RectangleF(0, 0, Width, Height), _cornerRadius);
+                Region = new Region(path);
+            }
+            else
+            {
+                Region = null;
+            }
+        }
+        catch { }
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        _scale = e.DeviceDpiNew / 96f;
+        UpdateMetrics();
+        Bounds = e.SuggestedRectangle;
+        UpdateWindowRegion();
+        Invalidate();
     }
 
     private void SetupForm()
@@ -106,15 +139,11 @@ internal sealed class MacDialog : Form
         int bodyHeight;
         using (var g = CreateGraphics())
         {
-            var titleSize = TextRenderer.MeasureText(g, _title, titleFont,
-                new Size(contentWidth, 9999),
-                TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-            titleHeight = titleSize.Height;
+            var titleSize = g.MeasureString(_title, titleFont, contentWidth);
+            titleHeight = (int)Math.Ceiling(titleSize.Height);
 
-            var bodySize = TextRenderer.MeasureText(g, _message, bodyFont,
-                new Size(contentWidth, 9999),
-                TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-            bodyHeight = bodySize.Height;
+            var bodySize = g.MeasureString(_message, bodyFont, contentWidth);
+            bodyHeight = (int)Math.Ceiling(bodySize.Height);
         }
 
         int totalHeight = _padding                   // 顶部留白
@@ -132,21 +161,7 @@ internal sealed class MacDialog : Form
         ClientSize = new Size(dialogWidth, totalHeight);
 
         // DWM 圆角 + 深色模式 + 亚克力
-        HandleCreated += (_, _) =>
-        {
-            try
-            {
-                bool rounded = Native.TryRoundCorners(Handle);
-                Native.SetImmersiveDarkMode(Handle, _dark);
-                Native.TrySetTransientBackdrop(Handle);
-                if (!rounded)
-                {
-                    using var path = Gfx.RoundedRect(new RectangleF(0, 0, Width, Height), _cornerRadius);
-                    Region = new Region(path);
-                }
-            }
-            catch { }
-        };
+        HandleCreated += (_, _) => UpdateWindowRegion();
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -186,25 +201,17 @@ internal sealed class MacDialog : Form
 
         // ——— 标题（居中） ———
         using var titleFont = new Font("Microsoft YaHei", _titleFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-        var titleSize = TextRenderer.MeasureText(g, _title, titleFont,
-            new Size(contentWidth, 9999),
-            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-
-        var titleRect = new Rectangle(_padding, y, contentWidth, titleSize.Height);
-        TextRenderer.DrawText(g, _title, titleFont, titleRect, FgColor,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-        y += titleSize.Height + (int)(8 * _scale);
+        var titleSize = g.MeasureString(_title, titleFont, contentWidth);
+        var titleRect = new RectangleF(_padding, y, contentWidth, titleSize.Height);
+        DrawStringCenter(g, _title, titleFont, FgColor, titleRect, wordBreak: true);
+        y += (int)Math.Ceiling(titleSize.Height) + (int)(8 * _scale);
 
         // ——— 正文（居中） ———
         using var bodyFont = new Font("Microsoft YaHei", _bodyFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
-        var bodySize = TextRenderer.MeasureText(g, _message, bodyFont,
-            new Size(contentWidth, 9999),
-            TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-
-        var bodyRect = new Rectangle(_padding, y, contentWidth, bodySize.Height);
-        TextRenderer.DrawText(g, _message, bodyFont, bodyRect, SecondaryFg,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
-        y += bodySize.Height + (int)(20 * _scale);
+        var bodySize = g.MeasureString(_message, bodyFont, contentWidth);
+        var bodyRect = new RectangleF(_padding, y, contentWidth, bodySize.Height);
+        DrawStringCenter(g, _message, bodyFont, SecondaryFg, bodyRect, wordBreak: true);
+        y += (int)Math.Ceiling(bodySize.Height) + (int)(20 * _scale);
 
         // ——— 分隔线 ———
         using (var separatorPen = new Pen(SeparatorColor, 1f))
@@ -226,7 +233,7 @@ internal sealed class MacDialog : Form
 
     private void DrawButtons(Graphics g, int y, int dialogWidth)
     {
-        using var btnFont = new Font("Microsoft YaHei", (int)(15 * _scale), FontStyle.Regular, GraphicsUnit.Pixel);
+        using var btnFont = new Font("Microsoft YaHei", (int)(14 * _scale), FontStyle.Bold, GraphicsUnit.Pixel);
 
         string primaryText = _buttons switch
         {
@@ -245,12 +252,12 @@ internal sealed class MacDialog : Form
 
         // 测量按钮宽度
         int primaryW = Math.Max(_btnMinWidth,
-            TextRenderer.MeasureText(primaryText, btnFont).Width + (int)(28 * _scale));
+            (int)g.MeasureString(primaryText, btnFont).Width + (int)(28 * _scale));
 
         if (_hasSecondary)
         {
             int secondaryW = Math.Max(_btnMinWidth,
-                TextRenderer.MeasureText(secondaryText, btnFont).Width + (int)(28 * _scale));
+                (int)g.MeasureString(secondaryText, btnFont).Width + (int)(28 * _scale));
             int totalW = primaryW + spacing + secondaryW;
             int startX = (dialogWidth - totalW) / 2;
 
@@ -295,9 +302,20 @@ internal sealed class MacDialog : Form
         g.FillPath(brush, path);
 
         // 按钮文字
-        TextRenderer.DrawText(g, text, font, rect, fg,
-            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter |
-            TextFormatFlags.SingleLine | TextFormatFlags.NoPrefix);
+        DrawStringCenter(g, text, font, fg, btnRect);
+    }
+
+    private static void DrawStringCenter(Graphics g, string text, Font font, Color color, RectangleF rect, bool wordBreak = false)
+    {
+        using var brush = new SolidBrush(color);
+        using var sf = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center,
+            Trimming = StringTrimming.EllipsisCharacter,
+            FormatFlags = wordBreak ? 0 : StringFormatFlags.NoWrap
+        };
+        g.DrawString(text, font, brush, rect, sf);
     }
 
     /// <summary>绘制 macOS 26 风格图标（自绘矢量，不依赖外部资源）。</summary>

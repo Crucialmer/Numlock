@@ -240,6 +240,21 @@ internal static class SelfTest
                     && upReady.Width > 300 && upCheck.Width > 300);
             }
 
+            using (var abLight = MacAboutWindow.RenderPreview(dark: false))
+            using (var abDark = MacAboutWindow.RenderPreview(dark: true))
+            {
+                string abLightPath = Path.Combine(dir, "about-light.png");
+                string abDarkPath = Path.Combine(dir, "about-dark.png");
+                abLight.Save(abLightPath, ImageFormat.Png);
+                abDark.Save(abDarkPath, ImageFormat.Png);
+                double abLumLight = AverageLuminance(abLightPath);
+                double abLumDark = AverageLuminance(abDarkPath);
+                Check($"G2d. macOS 26 关于软件窗口渲染（深浅双模/图例卡片完整，亮度 {abLumLight:F0}/{abLumDark:F0}）",
+                    LooksRenderedFile(abLightPath) && LooksRenderedFile(abDarkPath)
+                    && abLumLight - abLumDark > 30
+                    && abLight.Width >= 370 && abLight.Height >= 480);
+            }
+
             app.SetMenuTheme(!SystemTheme.UsesLightTaskbar()); // 恢复真实主题
             var mm96 = MenuMetrics.For(96, dwmCorners: true);
             var mm192 = MenuMetrics.For(192, dwmCorners: true);
@@ -269,6 +284,17 @@ internal static class SelfTest
             using (var big = IconFactory.RenderTrayIcon(64, true, true, true)) // 400% 缩放下托盘小图标 ≈ 64px
             {
                 Check("G5. 高 DPI（64px）托盘图标渲染有效", LooksRendered(big));
+            }
+
+            // G5b. 8K 高 DPI（384 DPI = 400% 缩放）跨屏漫游与窗口度量计算
+            {
+                float s8k = 384f / 96f; // 4.0
+                int aboutW8k = (int)(380 * s8k);
+                int aboutH8k = (int)(490 * s8k);
+                int updateW8k = (int)(390 * s8k);
+                int updateH8k = (int)(380 * s8k);
+                Check($"G5b. 8K 高 DPI（384 DPI / 400% 缩放）窗口度量自适应（关于={aboutW8k}x{aboutH8k}px，更新={updateW8k}x{updateH8k}px）",
+                    aboutW8k == 1520 && aboutH8k == 1960 && updateW8k == 1560 && updateH8k == 1520);
             }
 
             // K. 菜单项文字墨迹垂直居中（用渲染图实测；勾选/箭头按行高居中，文字须同源居中）
