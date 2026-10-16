@@ -2,7 +2,7 @@
 
 在系统托盘实时显示数字小键盘（NumLock）开关状态的小工具，支持将 NumLock **保持常开**。
 
-C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运行时。
+C# / .NET 10 WinForms 编写，单文件绿色免安装，超轻量小包设计（约 176 KB）。自身不捆绑臃肿引擎，借用系统官方 .NET 10 运行时，自动无感享受 Windows Update 升级优化，真正零残留绿色便携。
 
 ![托盘图标状态](docs/tray-states.png)
 
@@ -64,9 +64,8 @@ C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运�
 
 ## 使用方法
 
-1. 从 [Releases](../../releases) 下载压缩包并解压：
-   - **`Numlock-Slim.zip`（推荐，极简小包，仅约 150 KB）**：直接借用系统已安装的官方 .NET 10 Desktop Runtime，自动无缝享受 Windows Update 静默推送的 .NET 10 安全与 JIT 提速补丁，无需重新下载软件。
-   - **`Numlock.zip`（标准独立版）**：自包含 .NET 运行时，开箱即用，免去手动安装运行时的步骤。
+1. 从 [Releases](../../releases) 下载 `Numlock.zip` 并解压（极简小包，仅约 176 KB；解压出 `Numlock\` 文件夹）。
+   - **极致轻量**：单文件 exe 仅约 350 KB，直接借用系统已安装的官方 .NET 10 Desktop Runtime，自动无缝享受 Windows Update 静默推送的 .NET 10 安全补丁与 JIT 提速优化，无需重新下载软件。
 2. 双击 `Numlock\Numlock.exe` 运行（SmartScreen 提示时选择“仍要运行”）。
 3. 托盘出现键帽图标后即可使用；双击图标切换，右键图标打开精致紧凑的 macOS 风格菜单。
 
@@ -80,18 +79,13 @@ C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运�
 dotnet build Numlock.csproj -c Release
 ```
 
-发布免安装版本：
+发布免安装单文件极简版（约 350 KB）：
 
-- **极简小包（Framework-Dependent 单文件，约 350 KB）**：
-  ```bash
-  dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish-slim
-  ```
-- **独立自包含版（Self-Contained 单文件）**：
-  ```bash
-  dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
-  ```
+```bash
+dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish
+```
 
-或直接运行 `publish.cmd`（一键完成测试门禁并同时打包 `Numlock.zip` 与 `Numlock-Slim.zip`）。
+或直接运行 `publish.cmd`（自动编译、运行自动化自检门禁并打包免安装 zip `Numlock.zip` 及其 SHA256 校验和）。
 
 ## 命令行参数（开发用）
 

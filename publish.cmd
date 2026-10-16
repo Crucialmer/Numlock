@@ -19,7 +19,7 @@ if not exist "docs\*.txt" (echo ERROR: docs\*.txt not found & exit /b 1)
 if not exist "LICENSE" (echo ERROR: LICENSE not found & exit /b 1)
 
 if exist publish rmdir /s /q publish
-call dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+call dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish
 if errorlevel 1 (echo. & echo ERROR: dotnet publish failed & exit /b 1)
 
 rem Gate: self-test the packaged exe (needs a desktop session and no running instance).
@@ -59,33 +59,6 @@ for /f "delims=" %%h in ('powershell -NoProfile -Command "(Get-FileHash -Algorit
 > "%ZIP%.sha256" echo %ZIPHASH%
 echo SHA256: %ZIPHASH%
 
-rem Build and package framework-dependent slim zip (Numlock-Slim.zip, ~150KB)
-if exist publish-slim rmdir /s /q publish-slim
-call dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish-slim
-if errorlevel 1 (echo. & echo ERROR: dotnet publish slim failed & exit /b 1)
-
-copy /y "docs\*.txt" "publish-slim\" >nul
-copy /y "LICENSE" "publish-slim\LICENSE.txt" >nul
-
-set STAGE_SLIM=%TEMP%\numlock-stage-slim
-if exist "%STAGE_SLIM%" rmdir /s /q "%STAGE_SLIM%"
-mkdir "%STAGE_SLIM%\Numlock"
-if errorlevel 1 (echo ERROR: staging slim folder failed & exit /b 1)
-copy /y "publish-slim\Numlock.exe" "%STAGE_SLIM%\Numlock\" >nul
-copy /y "publish-slim\*.txt" "%STAGE_SLIM%\Numlock\" >nul
-
-set ZIP_SLIM=Numlock-Slim.zip
-if exist "%ZIP_SLIM%" del "%ZIP_SLIM%"
-powershell -NoProfile -Command "Compress-Archive -Path '%STAGE_SLIM%\Numlock' -DestinationPath '%ZIP_SLIM%' -Force"
-if errorlevel 1 (echo ERROR: packaging slim failed & exit /b 1)
-if not exist "%ZIP_SLIM%" (echo ERROR: slim zip not created & exit /b 1)
-
-for /f "delims=" %%h in ('powershell -NoProfile -Command "(Get-FileHash -Algorithm SHA256 '%ZIP_SLIM%').Hash.ToLower()"') do set SLIMHASH=%%h
-> "%ZIP_SLIM%.sha256" echo %SLIMHASH%
-echo Slim SHA256: %SLIMHASH%
-
 echo.
-echo Done:
-echo   - Standard: publish\Numlock.exe, %ZIP% and %ZIP%.sha256
-echo   - Slim:     publish-slim\Numlock.exe, %ZIP_SLIM% and %ZIP_SLIM%.sha256
+echo Done: publish\Numlock.exe, %ZIP% (slim framework-dependent) and %ZIP%.sha256
 endlocal
