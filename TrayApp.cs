@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
@@ -1134,7 +1135,17 @@ internal sealed class TrayApp : ApplicationContext
 
     private static void ShowAbout()
     {
-        string version = typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        string? infoVer = typeof(TrayApp).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+        if (!string.IsNullOrEmpty(infoVer))
+        {
+            int plus = infoVer.IndexOf('+');
+            if (plus > 0) infoVer = infoVer[..plus];
+        }
+        string version = !string.IsNullOrEmpty(infoVer)
+            ? infoVer
+            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(2) ?? "1.0");
         MacAboutWindow.ShowAbout(version);
     }
 

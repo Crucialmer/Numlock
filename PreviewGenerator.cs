@@ -15,7 +15,7 @@ internal static class PreviewGenerator
             Directory.CreateDirectory(docsDir);
         }
 
-        string artifactDir = @"C:\Users\Agent\.gemini\antigravity\brain\6b0ecfae-f4cd-4051-b4be-94b77e389bf2";
+        string? artifactDir = Environment.GetEnvironmentVariable("PREVIEW_ARTIFACT_DIR");
 
         Console.WriteLine("Generating preview images...");
 
@@ -37,19 +37,18 @@ internal static class PreviewGenerator
         using var planBLight = MakeRoundedMenu(rawPlanBLight, 8f, dark: false);
         using var planBDark = MakeRoundedMenu(rawPlanBDark, 8f, dark: true);
 
-        // Save individual files
-        SaveImage(curLight, Path.Combine(docsDir, "preview-current-light.png"), Path.Combine(artifactDir, "preview-current-light.png"));
-        SaveImage(curDark, Path.Combine(docsDir, "preview-current-dark.png"), Path.Combine(artifactDir, "preview-current-dark.png"));
+        SaveImage(curLight, Path.Combine(docsDir, "preview-current-light.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-current-light.png") : null);
+        SaveImage(curDark, Path.Combine(docsDir, "preview-current-dark.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-current-dark.png") : null);
 
-        SaveImage(planALight, Path.Combine(docsDir, "preview-plan-a-light.png"), Path.Combine(artifactDir, "preview-plan-a-light.png"));
-        SaveImage(planADark, Path.Combine(docsDir, "preview-plan-a-dark.png"), Path.Combine(artifactDir, "preview-plan-a-dark.png"));
+        SaveImage(planALight, Path.Combine(docsDir, "preview-plan-a-light.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-plan-a-light.png") : null);
+        SaveImage(planADark, Path.Combine(docsDir, "preview-plan-a-dark.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-plan-a-dark.png") : null);
 
-        SaveImage(planBLight, Path.Combine(docsDir, "preview-plan-b-light.png"), Path.Combine(artifactDir, "preview-plan-b-light.png"));
-        SaveImage(planBDark, Path.Combine(docsDir, "preview-plan-b-dark.png"), Path.Combine(artifactDir, "preview-plan-b-dark.png"));
+        SaveImage(planBLight, Path.Combine(docsDir, "preview-plan-b-light.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-plan-b-light.png") : null);
+        SaveImage(planBDark, Path.Combine(docsDir, "preview-plan-b-dark.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-plan-b-dark.png") : null);
 
         // 4. Generate comparison board
         using var compBoard = RenderComparisonBoard(curLight, curDark, planALight, planADark, planBLight, planBDark);
-        SaveImage(compBoard, Path.Combine(docsDir, "preview-comparison.png"), Path.Combine(artifactDir, "preview-comparison.png"));
+        SaveImage(compBoard, Path.Combine(docsDir, "preview-comparison.png"), artifactDir != null ? Path.Combine(artifactDir, "preview-comparison.png") : null);
 
         Console.WriteLine("All previews generated successfully!");
     }
@@ -70,11 +69,11 @@ internal static class PreviewGenerator
         return dst;
     }
 
-    private static void SaveImage(Bitmap bmp, string path1, string path2)
+    private static void SaveImage(Bitmap bmp, string path1, string? path2 = null)
     {
         bmp.Save(path1, ImageFormat.Png);
         Console.WriteLine($"Saved: {path1}");
-        if (Directory.Exists(Path.GetDirectoryName(path2)))
+        if (!string.IsNullOrEmpty(path2) && Directory.Exists(Path.GetDirectoryName(path2)))
         {
             bmp.Save(path2, ImageFormat.Png);
             Console.WriteLine($"Saved: {path2}");
