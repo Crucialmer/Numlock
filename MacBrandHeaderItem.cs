@@ -13,17 +13,17 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
 {
     private bool _enforce;
     private bool _numOn;
-    private readonly string _versionText;
     private readonly Func<bool>? _isDark;
 
-    public MacBrandHeaderItem(string version, Func<bool>? isDark = null)
+    public MacBrandHeaderItem(Func<bool>? isDark = null)
     {
         AutoSize = false;
-        Size = new Size(268, 58);
+        Size = new Size(250, 56);
         ToolTipText = "点击查看关于软件…";
-        _versionText = version.StartsWith('v') ? version : $"v{version}";
         _isDark = isDark;
     }
+
+    public MacBrandHeaderItem(string? version, Func<bool>? isDark = null) : this(isDark) { }
 
     protected override void OnMouseEnter(EventArgs e)
     {
@@ -52,8 +52,8 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
     public override Size GetPreferredSize(Size proposedSize)
     {
         float s = (Owner?.DeviceDpi ?? 96) / 96f;
-        int w = (int)Math.Round(268 * s);
-        int h = (int)Math.Round(58 * s);
+        int w = (int)Math.Round(250 * s);
+        int h = (int)Math.Round(56 * s);
         return new Size(w, h);
     }
 
@@ -90,7 +90,7 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
             g.DrawPath(pen, path);
         }
 
-        // 第一行：[18px 连续曲率方圆角图标] + Numlock（加粗 Bold 700）+ [右侧版本徽标胶囊]
+        // 第一行：[18px 连续曲率方圆角图标] + Numlock（加粗 Bold 700 品牌名，极简纯粹不标版本号）
         float iconSize = Math.Max(16f, 18f * s);
         float iconX = cardRect.X + 10f * s;
         float line1Y = cardRect.Y + 8f * s;
@@ -111,29 +111,8 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
                 brandFg, TextFormatFlags.NoPadding);
         }
 
-        // 精细磨砂半透明版本徽标胶囊（对标 SwitchTask #menuHeaderVersion）
-        using (var verFont = new Font("Microsoft YaHei", 10.5f * s, FontStyle.Bold, GraphicsUnit.Pixel))
-        {
-            Size verSize = TextRenderer.MeasureText(g, _versionText, verFont);
-            float verBadgeW = verSize.Width + 10f * s;
-            float verBadgeH = Math.Max(16f, 18f * s);
-            float verBadgeX = cardRect.Right - verBadgeW - 10f * s;
-            float verBadgeY = line1Y + 1f * s;
-            var verRect = new RectangleF(verBadgeX, verBadgeY, verBadgeW, verBadgeH);
-            using (var verPath = Gfx.RoundedRect(verRect, Math.Max(3f, 4f * s)))
-            {
-                Color verBg = isDark ? Color.FromArgb(32, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0);
-                using var verBrush = new SolidBrush(verBg);
-                g.FillPath(verBrush, verPath);
-            }
-            Color verFg = isDark ? Color.FromArgb(0x98, 0x98, 0x9D) : Color.FromArgb(0x8E, 0x8E, 0x93);
-            var verTextRect = new Rectangle((int)verBadgeX, (int)verBadgeY, (int)verBadgeW, (int)verBadgeH);
-            TextRenderer.DrawText(g, _versionText, verFont, verTextRect, verFg,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-        }
-
         // 第二行：状态呼吸圆点 + 实时状态（粗体 700 + 绿/橙呼吸圆点）
-        float line2Y = cardRect.Y + 31f * s;
+        float line2Y = cardRect.Y + 30f * s;
         Color dotColor = (!_numOn && !_enforce)
             ? Color.FromArgb(0xFE, 0xBC, 0x2E)    // TrafficYellow (橙黄)
             : Color.FromArgb(0x28, 0xC8, 0x40);   // TrafficGreen (Apple绿)

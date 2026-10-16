@@ -26,6 +26,7 @@ internal sealed class MacAboutWindow : Form
     private static MacAboutWindow? s_instance;
 
     private readonly bool _dark;
+    private readonly string _version;
     private float _scale;
     private int _cornerRadius;
 
@@ -57,6 +58,9 @@ internal sealed class MacAboutWindow : Form
 
     internal MacAboutWindow(string? version = null, bool? dark = null)
     {
+        _version = string.IsNullOrWhiteSpace(version)
+            ? Updater.CurrentVersion.ToString(3)
+            : version.TrimStart('v');
         _dark = dark ?? !SystemTheme.UsesLightTaskbar();
         _scale = DeviceDpi / 96f;
         _cornerRadius = (int)(16 * _scale);
@@ -70,9 +74,9 @@ internal sealed class MacAboutWindow : Form
         BackColor = Color.FromArgb(BgColor.R, BgColor.G, BgColor.B);
         KeyPreview = true;
 
-        // 紧凑型尺寸：328 x 405（黄金卡片比例）
+        // 紧凑型尺寸：328 x 430（黄金卡片比例，优雅容纳版本徽标）
         int width = (int)(328 * _scale);
-        int height = (int)(405 * _scale);
+        int height = (int)(430 * _scale);
         ClientSize = new Size(width, height);
 
         // 居中呈现于用户当前操作光标所在的显示器工作区（符合 macOS 原生面板标准）
@@ -189,10 +193,10 @@ internal sealed class MacAboutWindow : Form
             DrawStringCenter(g, "关于软件", topFont, SecondaryFg, new RectangleF(0, 11 * _scale, w, 18 * _scale));
         }
 
-        // ——— 3. 应用标识（居中精致磁贴 + 品牌名 + 纯粹副标题，不标版本号） ———
+        // ——— 3. 应用标识（居中精致磁贴 + 品牌名 + 精致半透明版本徽标胶囊 + 副标题） ———
         int iconSize = (int)(50 * _scale);
         int iconX = (w - iconSize) / 2;
-        int iconY = (int)(38 * _scale);
+        int iconY = (int)(36 * _scale);
         using (var tileBmp = IconFactory.RenderAppTile(iconSize))
         {
             g.DrawImage(tileBmp, iconX, iconY, iconSize, iconSize);
@@ -204,15 +208,34 @@ internal sealed class MacAboutWindow : Form
         int nameY = iconY + iconSize + (int)(6 * _scale);
         DrawStringCenter(g, "Numlock", nameFont, FgColor, new RectangleF(0, nameY, w, nameSize.Height));
 
-        // 副标题描述（紧凑排布于软件名下方，无版本号阻断）
+        // 精致半透明版本徽标胶囊（macOS 26 磨砂半透明胶囊，保留版本号徽标）
+        string verBadge = "v" + _version;
+        using var verFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        var verSize = g.MeasureString(verBadge, verFont);
+        int badgeW = (int)verSize.Width + (int)(16 * _scale);
+        int badgeH = (int)verSize.Height + (int)(4 * _scale);
+        int badgeX = (w - badgeW) / 2;
+        int badgeY = nameY + (int)nameSize.Height + (int)(4 * _scale);
+
+        var badgeRect = new RectangleF(badgeX, badgeY, badgeW, badgeH);
+        using (var badgePath = Gfx.RoundedRect(badgeRect, badgeH / 2f))
+        {
+            using var badgeFill = new SolidBrush(Color.FromArgb(_dark ? 40 : 25, AccentBlue));
+            g.FillPath(badgeFill, badgePath);
+            using var badgePen = new Pen(Color.FromArgb(_dark ? 80 : 50, AccentBlue), 1f);
+            g.DrawPath(badgePen, badgePath);
+        }
+        DrawStringCenter(g, verBadge, verFont, AccentBlue, badgeRect);
+
+        // 副标题描述（紧凑排布于版本徽标下方）
         using var subFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        int subY = nameY + (int)nameSize.Height + (int)(4 * _scale);
+        int subY = badgeY + badgeH + (int)(5 * _scale);
         DrawStringCenter(g, "数字小键盘状态看护 · 保持常开", subFont, SecondaryFg, new RectangleF(0, subY, w, 18 * _scale));
 
         // ——— 4. 状态图例与功能卡片（macOS Inset Card） ———
         int cardMargin = (int)(16 * _scale);
         int cardX = cardMargin;
-        int cardY = subY + (int)(20 * _scale);
+        int cardY = subY + (int)(18 * _scale);
         int cardW = w - cardMargin * 2;
         int cardH = (int)(152 * _scale);
 
@@ -458,9 +481,10 @@ internal sealed class MacAboutWindow : Form
     }
 
     /// <summary>自检与文档离线截图渲染辅助：无需实际弹出窗口即可离线精确渲染外观。</summary>
-    internal static Bitmap RenderPreview(bool dark)
+    internal static Bitmap RenderPreview(bool dark, string? version = null)
     {
-        using var win = new MacAboutWindow(null, dark);
+        version ??= Updater.CurrentVersion.ToString(3);
+        using var win = new MacAboutWindow(version, dark);
         var bmp = new Bitmap(win.ClientSize.Width, win.ClientSize.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
         bmp.SetResolution(96, 96);
         using (var g = Graphics.FromImage(bmp))

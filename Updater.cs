@@ -55,7 +55,7 @@ internal static class Updater
 
     private const string ApiLatest = "https://api.github.com/repos/" + Owner + "/" + Repo + "/releases/latest";
     internal const string PageUrl = "https://github.com/" + Owner + "/" + Repo + "/releases";
-    private const int RequestTimeoutMs = 20_000;
+    private const int RequestTimeoutMs = 8_000;
     private const int DownloadTimeoutMs = 10 * 60_000;
     private const long MaxDownloadBytes = 200L * 1024 * 1024;  // 更新包体积上限（当前包约 43MB）
     private const long MaxStagedBytes = 300L * 1024 * 1024;    // 解出的可执行文件体积上限

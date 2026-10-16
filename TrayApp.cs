@@ -136,8 +136,8 @@ internal sealed class TrayApp : ApplicationContext
         _updateItem = new ToolStripMenuItem("检查更新…", null, (_, _) => OnUpdateMenuClicked());
         _autoCheckItem = new ToolStripMenuItem("启动时自动检查", null, (_, _) => ToggleAutoCheck());
 
-        // macOS 原生 Menu Bar Extra 顶部专属品牌状态卡片：58px 高度完整展开
-        _brandHeader = new MacBrandHeaderItem(Updater.CurrentVersion.ToString(3), () => MenuRenderer.Dark);
+        // macOS 原生 Menu Bar Extra 顶部专属品牌状态卡片：56px 高度精致状态行（不标版本号）
+        _brandHeader = new MacBrandHeaderItem(() => MenuRenderer.Dark);
         _brandHeader.Click += (_, _) => ShowAbout();
 
         var mainItems = new ToolStripItem[]
