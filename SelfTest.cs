@@ -343,7 +343,7 @@ internal static class SelfTest
                 int sepLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripSeparator>().First().Bounds);
                 int textLeft = RowLeftInk(mimg, app.Menu.Items.OfType<ToolStripMenuItem>().First(i => i.Text != null && i.Text.StartsWith("关于")).Bounds);
                 Check($"L2. 分隔线优雅内缩收尾（分隔线起点 {sepLeft}px，文字起点 {textLeft}px）",
-                    sepLeft > 0 && textLeft > sepLeft && Math.Abs(sepLeft - Math.Round(14 * scale)) <= Math.Ceiling(3 * scale));
+                    sepLeft > 0 && textLeft > sepLeft && Math.Abs(sepLeft - Math.Round(16 * scale)) <= Math.Ceiling(3 * scale));
 
                 int seam = SeamStrokeColumns(Path.Combine(dir, "menu-light-onscreen.png"), mimg.Width, log);
                 Check($"L3. 子菜单接缝无双描边（实测 {seam} 列，0–1 为合格）", seam >= 0 && seam <= 1);

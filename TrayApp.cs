@@ -160,8 +160,8 @@ internal sealed class TrayApp : ApplicationContext
         Menu.Opening += (_, _) =>
         {
             float s = Menu.DeviceDpi / 96f;
-            Menu.MinimumSize = new Size((int)Math.Round(268 * s), 0);
-            _brandHeader.Size = new Size((int)Math.Round(268 * s), (int)Math.Round(58 * s));
+            Menu.MinimumSize = new Size((int)Math.Round(216 * s), 0);
+            _brandHeader.Size = new Size((int)Math.Round(216 * s), (int)Math.Round(56 * s));
             _brandHeader.UpdateStatus(Config.EnforceNumLock, NumLock.IsOn);
             ApplyMenuMetrics(); // 显示器 DPI 变化时重算（常规情况下为无操作）
             SyncMenuState();

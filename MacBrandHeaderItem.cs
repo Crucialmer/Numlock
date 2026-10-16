@@ -18,7 +18,7 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
     public MacBrandHeaderItem(Func<bool>? isDark = null)
     {
         AutoSize = false;
-        Size = new Size(250, 56);
+        Size = new Size(216, 56);
         ToolTipText = "点击查看关于软件…";
         _isDark = isDark;
     }
@@ -52,7 +52,7 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
     public override Size GetPreferredSize(Size proposedSize)
     {
         float s = (Owner?.DeviceDpi ?? 96) / 96f;
-        int w = (int)Math.Round(250 * s);
+        int w = (int)Math.Round(216 * s);
         int h = (int)Math.Round(56 * s);
         return new Size(w, h);
     }
