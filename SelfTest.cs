@@ -508,16 +508,17 @@ internal static class SelfTest
                   "html_url": "https://github.com/Crucialmer/Numlock/releases/tag/v1.3",
                   "assets": [
                     { "name": "Numlock.zip.sha256", "browser_download_url": "https://example.invalid/x.sha256" },
-                    { "name": "Numlock.zip", "browser_download_url": "https://example.invalid/Numlock.zip", "digest": "sha256:ABCDEF0123" }
+                    { "name": "Numlock.zip", "browser_download_url": "https://example.invalid/Numlock.zip", "digest": "sha256:ABCDEF0123", "size": 181175 }
                   ]
                 }
                 """;
                 var relInfo = Updater.ParseLatestRelease(releaseJson);
-                Check("M3. Release JSON 解析（挑中 Numlock.zip、digest 归一化、页面地址）",
+                Check("M3. Release JSON 解析（挑中 Numlock.zip、digest 归一化、页面地址、资产体积）",
                     relInfo != null
                     && relInfo.Version == new Version(1, 3, 0, 0)
                     && relInfo.AssetUrl == "https://example.invalid/Numlock.zip"
                     && relInfo.Sha256 == "abcdef0123"
+                    && relInfo.AssetSizeBytes == 181175
                     && relInfo.PageUrl.EndsWith("/v1.3", StringComparison.Ordinal));
 
                 Check("M3b. Release JSON 缺资产 / 缺标签 / 内容畸形时返回 null（不误判为可更新、不抛异常）",
@@ -525,6 +526,11 @@ internal static class SelfTest
                     && Updater.ParseLatestRelease("""{"assets":[{"name":"Numlock.zip","browser_download_url":"https://x/"}]}""") == null
                     && Updater.ParseLatestRelease("not json at all") == null
                     && Updater.ParseLatestRelease("") == null);
+
+                Check("M3c. 更新包体积格式化（智能自适应 KB/MB）",
+                    MacUpdateWindow.FormatSize(181175) == "177 KB"
+                    && MacUpdateWindow.FormatSize(1024 * 1024 * 2) == "2.0 MB"
+                    && MacUpdateWindow.FormatSize(0) == "0 KB");
 
                 string updDir = Path.Combine(dir, "upd");
                 if (Directory.Exists(updDir))

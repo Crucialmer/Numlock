@@ -49,7 +49,8 @@ internal sealed class MacUpdateWindow : Form
     private Action? _onDownload;
     private Action? _onCancelDownload;
 
-    // 下载进度跟踪
+    // 下载进度与目标体积跟踪
+    private long _targetSizeBytes;
     private long _downloadedBytes;
     private long _totalDownloadBytes;
     private float _downloadProgress = -1f; // 0.0f .. 1.0f，-1 表示未知/初始化中
@@ -419,7 +420,8 @@ internal sealed class MacUpdateWindow : Form
         DrawStringCenter(g, $"发现新版本 Numlock v{_targetVersion}", headFont, FgColor, new RectangleF(x, textY, w, 22 * _scale));
 
         using var descFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        DrawStringCenter(g, $"发现新版本可用（当前运行的是 v{_currentVersion}，新包约 180 KB）。点击下方按钮开始下载。", descFont, SecondaryFg,
+        string sizeStr = _targetSizeBytes > 0 ? $"，新包约 {FormatSize(_targetSizeBytes)}" : "";
+        DrawStringCenter(g, $"发现新版本可用（当前运行的是 v{_currentVersion}{sizeStr}）。点击下方按钮开始下载。", descFont, SecondaryFg,
             new RectangleF(x + 10 * _scale, textY + 22 * _scale, w - 20 * _scale, 32 * _scale), wordBreak: true);
 
         // 发布说明链接
@@ -485,7 +487,8 @@ internal sealed class MacUpdateWindow : Form
         }
         else
         {
-            progressText = "正在从 GitHub 下载极简更新包（约 180 KB），请稍候…";
+            string sizeHint = _targetSizeBytes > 0 ? $"（约 {FormatSize(_targetSizeBytes)}）" : "";
+            progressText = $"正在从 GitHub 下载极简更新包{sizeHint}，请稍候…";
         }
 
         using var descFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
@@ -496,11 +499,15 @@ internal sealed class MacUpdateWindow : Form
         DrawStringCenter(g, "下载完成将自动校验 SHA-256 并准备就绪", hintFont, MutedFg, new RectangleF(x, textY + 20 * _scale, w, 18 * _scale));
     }
 
-    private static string FormatSize(long bytes)
+    internal static string FormatSize(long bytes)
     {
+        if (bytes <= 0)
+        {
+            return "0 KB";
+        }
         if (bytes < 1024 * 1024)
         {
-            return $"{(bytes / 1024.0):0} KB";
+            return $"{Math.Max(1, (int)Math.Round(bytes / 1024.0))} KB";
         }
         return $"{(bytes / (1024.0 * 1024.0)):0.0} MB";
     }
@@ -1027,13 +1034,14 @@ internal sealed class MacUpdateWindow : Form
     }
 
     /// <summary>更新结果：发现新版本（待用户确认是否下载）。</summary>
-    public static void SetResultAvailable(string version, Action onDownload, string pageUrl = Updater.PageUrl)
+    public static void SetResultAvailable(string version, Action onDownload, string pageUrl = Updater.PageUrl, long targetSizeBytes = 0)
     {
         if (s_instance != null && !s_instance.IsDisposed)
         {
             s_instance._targetVersion = version;
             s_instance._onDownload = onDownload;
             s_instance._pageUrl = pageUrl;
+            s_instance._targetSizeBytes = targetSizeBytes;
             s_instance._state = UpdateState.Available;
             s_instance._spinnerTimer?.Stop();
             s_instance.Invalidate();
@@ -1042,12 +1050,12 @@ internal sealed class MacUpdateWindow : Form
         }
         else
         {
-            ShowAvailable(version, onDownload, pageUrl);
+            ShowAvailable(version, onDownload, pageUrl, targetSizeBytes);
         }
     }
 
     /// <summary>直接以“发现新版本”状态打开窗口。</summary>
-    public static void ShowAvailable(string version, Action onDownload, string pageUrl = Updater.PageUrl)
+    public static void ShowAvailable(string version, Action onDownload, string pageUrl = Updater.PageUrl, long targetSizeBytes = 0)
     {
         EnsureInstance(UpdateState.Available);
         if (s_instance != null)
@@ -1055,6 +1063,7 @@ internal sealed class MacUpdateWindow : Form
             s_instance._targetVersion = version;
             s_instance._onDownload = onDownload;
             s_instance._pageUrl = pageUrl;
+            s_instance._targetSizeBytes = targetSizeBytes;
             s_instance._state = UpdateState.Available;
             s_instance._spinnerTimer?.Stop();
             s_instance.Invalidate();
@@ -1064,12 +1073,16 @@ internal sealed class MacUpdateWindow : Form
     }
 
     /// <summary>切换为“正在下载更新”状态。</summary>
-    public static void ShowDownloading(Action onCancel)
+    public static void ShowDownloading(Action onCancel, long targetSizeBytes = 0)
     {
         EnsureInstance(UpdateState.Downloading);
         if (s_instance != null)
         {
             s_instance._onCancelDownload = onCancel;
+            if (targetSizeBytes > 0)
+            {
+                s_instance._targetSizeBytes = targetSizeBytes;
+            }
             s_instance._downloadedBytes = 0;
             s_instance._totalDownloadBytes = 0;
             s_instance._downloadProgress = -1f;

@@ -22,6 +22,9 @@ internal sealed class UpdateInfo
     /// <summary>期望的 zip SHA-256（十六进制小写）；线上没提供时为 null。</summary>
     public string? Sha256 { get; init; }
 
+    /// <summary>更新包文件大小（字节）；线上未提供或未解析出时为 0。</summary>
+    public long AssetSizeBytes { get; init; }
+
     /// <summary>Release 页面地址（供“打不开自动更新”时手动下载）。</summary>
     public string PageUrl { get; init; } = "";
 }
@@ -57,7 +60,7 @@ internal static class Updater
     internal const string PageUrl = "https://github.com/" + Owner + "/" + Repo + "/releases";
     private const int RequestTimeoutMs = 8_000;
     private const int DownloadTimeoutMs = 10 * 60_000;
-    private const long MaxDownloadBytes = 200L * 1024 * 1024;  // 更新包体积上限（当前包约 43MB）
+    private const long MaxDownloadBytes = 200L * 1024 * 1024;  // 更新包体积上限（当前小包约 180 KB）
     private const long MaxStagedBytes = 300L * 1024 * 1024;    // 解出的可执行文件体积上限
 
     internal static Version CurrentVersion =>
@@ -129,6 +132,7 @@ internal static class Updater
 
         string? assetUrl = null;
         string? digest = null;
+        long assetSize = 0;
         if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
         {
             foreach (var a in assets.EnumerateArray())
@@ -139,6 +143,10 @@ internal static class Updater
                     continue;
                 }
                 assetUrl = a.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
+                if (a.TryGetProperty("size", out var sz) && sz.TryGetInt64(out long sVal))
+                {
+                    assetSize = sVal;
+                }
                 // GitHub 自 2024 起在资产上提供 digest: "sha256:<hex>"；老响应没有该字段
                 string? d = a.TryGetProperty("digest", out var dg) ? dg.GetString() : null;
                 if (!string.IsNullOrEmpty(d) && d.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
@@ -158,6 +166,7 @@ internal static class Updater
             AssetUrl = assetUrl,
             Sha256 = digest,
             PageUrl = page,
+            AssetSizeBytes = assetSize,
         };
     }
 

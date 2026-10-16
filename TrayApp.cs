@@ -440,7 +440,7 @@ internal sealed class TrayApp : ApplicationContext
 
         if (_downloadBusy)
         {
-            MacUpdateWindow.ShowDownloading(() => CancelDownload());
+            MacUpdateWindow.ShowDownloading(() => CancelDownload(), _latestUpdateInfo?.AssetSizeBytes ?? 0);
             return;
         }
 
@@ -577,7 +577,8 @@ internal sealed class TrayApp : ApplicationContext
                     MacUpdateWindow.SetResultAvailable(
                         _updateVersionText,
                         () => StartDownloadAndStage(info),
-                        info?.PageUrl ?? Updater.PageUrl);
+                        info?.PageUrl ?? Updater.PageUrl,
+                        info?.AssetSizeBytes ?? 0);
                 }
                 else if (_updateVersionText.Length > 0 && !string.Equals(Config.UpdateNotifiedVersion, _updateVersionText, StringComparison.Ordinal))
                 {
@@ -587,7 +588,8 @@ internal sealed class TrayApp : ApplicationContext
                     MacUpdateWindow.ShowAvailable(
                         _updateVersionText,
                         () => StartDownloadAndStage(info),
-                        info?.PageUrl ?? Updater.PageUrl);
+                        info?.PageUrl ?? Updater.PageUrl,
+                        info?.AssetSizeBytes ?? 0);
                 }
                 break;
             case UpdateOutcomeStaged:
@@ -653,7 +655,7 @@ internal sealed class TrayApp : ApplicationContext
         _downloadCts = new CancellationTokenSource();
         var ct = _downloadCts.Token;
 
-        MacUpdateWindow.ShowDownloading(() => CancelDownload());
+        MacUpdateWindow.ShowDownloading(() => CancelDownload(), info?.AssetSizeBytes ?? 0);
         SyncMenuState();
 
         var progress = new Progress<(long DownloadedBytes, long TotalBytes)>(p =>
@@ -1145,7 +1147,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         string version = !string.IsNullOrEmpty(infoVer)
             ? infoVer
-            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.4");
+            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.5");
         MacAboutWindow.ShowAbout(version);
     }
 
