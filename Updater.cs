@@ -163,7 +163,15 @@ internal static class Updater
 
     private static HttpClient CreateClient()
     {
-        var c = new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = true })
+        var handler = new SocketsHttpHandler
+        {
+            AllowAutoRedirect = true,
+            ConnectTimeout = TimeSpan.FromSeconds(3), // 限制 TCP 握手 3s，避免在丢包/受限节点死等系统默认 21s
+            AutomaticDecompression = DecompressionMethods.All,
+            PooledConnectionIdleTimeout = TimeSpan.FromSeconds(15),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+        };
+        var c = new HttpClient(handler)
         {
             Timeout = TimeSpan.FromMilliseconds(RequestTimeoutMs),
         };
@@ -175,57 +183,95 @@ internal static class Updater
 
     private static readonly HttpClient Http = CreateClient();
 
-    /// <summary>查询线上最新版本（阻塞；必须由后台线程调用）。</summary>
+    /// <summary>查询线上最新版本（阻塞；必须由后台线程调用）。具备官方 API + Web 重定向双通道极速备用探针。</summary>
     internal static (UpdateCheckResult Result, UpdateInfo? Info) Check()
     {
+        // 1. 优先通过 GitHub Releases API 检索完整元数据与 SHA-256 签名
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, ApiLatest);
             using var resp = Http.Send(req, HttpCompletionOption.ResponseContentRead);
-            if (!resp.IsSuccessStatusCode)
+            if (resp.IsSuccessStatusCode)
             {
-                return (UpdateCheckResult.Failed, null);
+                using var reader = new StreamReader(resp.Content.ReadAsStream());
+                string json = reader.ReadToEnd();
+                var info = ParseLatestRelease(json);
+                if (info != null)
+                {
+                    return IsNewer(info.Version, CurrentVersion)
+                        ? (UpdateCheckResult.Available, info)
+                        : (UpdateCheckResult.UpToDate, info);
+                }
             }
-            using var reader = new StreamReader(resp.Content.ReadAsStream());
-            string json = reader.ReadToEnd();
-            var info = ParseLatestRelease(json);
-            if (info == null)
-            {
-                return (UpdateCheckResult.Failed, null);
-            }
-            return IsNewer(info.Version, CurrentVersion)
-                ? (UpdateCheckResult.Available, info)
-                : (UpdateCheckResult.UpToDate, info);
         }
         catch
         {
-            return (UpdateCheckResult.Failed, null); // 离线/超时/证书问题：静默
+            // API 超时、限流或受阻：不直接放弃，无缝降级到 Web 重定向探针
         }
+
+        // 2. 备用通道：向 github.com/releases/latest 请求（走 Fastly CDN，仅读响应头，极速重定向到 /tag/vX.X.X）
+        try
+        {
+            string latestWebUrl = "https://github.com/" + Owner + "/" + Repo + "/releases/latest";
+            using var req = new HttpRequestMessage(HttpMethod.Get, latestWebUrl);
+            using var resp = Http.Send(req, HttpCompletionOption.ResponseHeadersRead);
+            var finalUri = resp.RequestMessage?.RequestUri;
+            if (finalUri != null && finalUri.AbsolutePath.Contains("/releases/tag/"))
+            {
+                string tag = finalUri.Segments.LastOrDefault()?.Trim('/') ?? "";
+                var v = ParseTag(tag);
+                if (v != null)
+                {
+                    string assetUrl = $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/{AssetName}";
+                    var info = new UpdateInfo
+                    {
+                        Version = v,
+                        Tag = tag,
+                        AssetUrl = assetUrl,
+                        Sha256 = null, // 稍后下载时由 TryFetchSiblingHash 检索 .sha256 校验文件
+                        PageUrl = finalUri.ToString(),
+                    };
+                    return IsNewer(info.Version, CurrentVersion)
+                        ? (UpdateCheckResult.Available, info)
+                        : (UpdateCheckResult.UpToDate, info);
+                }
+            }
+        }
+        catch
+        {
+            // 离线/全链路不可达：静默失败
+        }
+
+        return (UpdateCheckResult.Failed, null);
     }
 
     /// <summary>下载 zip、校验 SHA-256、从压缩包中取出 Numlock.exe 暂存为 xxx.exe.new。返回 true 表示已就绪。
     /// 校验是硬门槛（fail-closed）：拿不到期望哈希就拒绝暂存，绝不"无校验更新"。</summary>
-    internal static bool DownloadAndStage(UpdateInfo info, string targetExe)
+    internal static bool DownloadAndStage(UpdateInfo info, string targetExe, CancellationToken cancelToken = default)
     {
         string? tmpZip = null;
         try
         {
             tmpZip = Path.Combine(Path.GetTempPath(), "numlock-" + Guid.NewGuid().ToString("N")[..8] + ".zip");
-            using var cts = new CancellationTokenSource(DownloadTimeoutMs); // 必须显式令牌：ResponseHeadersRead 下 HttpClient.Timeout 不覆盖正文读取
+            using var timeoutCts = new CancellationTokenSource(DownloadTimeoutMs);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancelToken);
+            var token = linkedCts.Token;
+
             using (var resp = Http.Send(new HttpRequestMessage(HttpMethod.Get, info.AssetUrl),
-                       HttpCompletionOption.ResponseHeadersRead, cts.Token))
+                       HttpCompletionOption.ResponseHeadersRead, token))
             {
                 if (!resp.IsSuccessStatusCode)
                 {
                     return false;
                 }
-                using var src = resp.Content.ReadAsStream(cts.Token);
+                using var src = resp.Content.ReadAsStream(token);
                 using var dst = File.Create(tmpZip);
                 byte[] buffer = new byte[81920];
                 long total = 0;
                 int read;
                 while ((read = src.Read(buffer, 0, buffer.Length)) > 0)
                 {
+                    token.ThrowIfCancellationRequested();
                     total += read;
                     if (total > MaxDownloadBytes) // 体积上限：防超长响应/无限流写满磁盘
                     {
@@ -239,18 +285,20 @@ internal static class Updater
             if (string.IsNullOrEmpty(expected))
             {
                 // 线上没给 digest：退回读取同名的 .sha256 资产
-                expected = TryFetchSiblingHash(info.AssetUrl);
+                expected = TryFetchSiblingHash(info.AssetUrl, token);
             }
             if (string.IsNullOrEmpty(expected))
             {
                 Log("线上未提供 SHA-256（digest 与 .sha256 资产均不可用），拒绝暂存未校验的更新");
                 return false;
             }
+            token.ThrowIfCancellationRequested();
             if (!VerifySha256(tmpZip, expected))
             {
                 Log("更新包 SHA-256 校验失败，已丢弃（期望 " + expected + "）");
                 return false;
             }
+            token.ThrowIfCancellationRequested();
             string staged = StagedPath(targetExe);
             if (!TryExtractExe(tmpZip, staged))
             {
@@ -266,6 +314,11 @@ internal static class Updater
             }
             return true;
         }
+        catch (OperationCanceledException)
+        {
+            Log("更新包下载已取消");
+            return false;
+        }
         catch (Exception ex)
         {
             Log("下载/暂存更新失败: " + ex.Message);
@@ -280,17 +333,17 @@ internal static class Updater
         }
     }
 
-    private static string? TryFetchSiblingHash(string assetUrl)
+    private static string? TryFetchSiblingHash(string assetUrl, CancellationToken token = default)
     {
         try
         {
-            using var resp = Http.Send(new HttpRequestMessage(HttpMethod.Get, assetUrl + ".sha256"),
-                HttpCompletionOption.ResponseContentRead);
+            using var req = new HttpRequestMessage(HttpMethod.Get, assetUrl + ".sha256");
+            using var resp = Http.Send(req, HttpCompletionOption.ResponseContentRead, token);
             if (!resp.IsSuccessStatusCode)
             {
                 return null;
             }
-            using var reader = new StreamReader(resp.Content.ReadAsStream());
+            using var reader = new StreamReader(resp.Content.ReadAsStream(token));
             string text = reader.ReadToEnd().Trim();
             string hex = text.Split(' ', '\t', '*', '\r', '\n')[0].Trim().ToLowerInvariant();
             return hex.Length == 64 && hex.All(Uri.IsHexDigit) ? hex : null;

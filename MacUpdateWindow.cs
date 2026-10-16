@@ -23,6 +23,8 @@ internal sealed class MacUpdateWindow : Form
     internal enum UpdateState
     {
         Checking,
+        Available,
+        Downloading,
         UpToDate,
         UpdateReady,
         Failed,
@@ -44,6 +46,8 @@ internal sealed class MacUpdateWindow : Form
 
     private Action? _onRestart;
     private Action? _onRetry;
+    private Action? _onDownload;
+    private Action? _onCancelDownload;
 
     // 控件区域交互缓存
     private RectangleF _closeBtnRect;
@@ -132,11 +136,11 @@ internal sealed class MacUpdateWindow : Form
         };
         _animTimer.Start();
 
-        // 检查中状态的 Spinner 旋转动画
+        // 检查中与下载中状态的 Spinner 旋转动画
         _spinnerTimer = new System.Windows.Forms.Timer { Interval = 40 };
         _spinnerTimer.Tick += (_, _) =>
         {
-            if (_state == UpdateState.Checking)
+            if (_state == UpdateState.Checking || _state == UpdateState.Downloading)
             {
                 _spinnerStep = (_spinnerStep + 1) % 12;
                 Invalidate();
@@ -147,7 +151,7 @@ internal sealed class MacUpdateWindow : Form
             }
         };
 
-        if (_state == UpdateState.Checking)
+        if (_state == UpdateState.Checking || _state == UpdateState.Downloading)
         {
             _spinnerTimer.Start();
         }
@@ -196,6 +200,9 @@ internal sealed class MacUpdateWindow : Form
         {
             switch (_state)
             {
+                case UpdateState.Available:
+                    HandlePrimaryAction();
+                    break;
                 case UpdateState.UpToDate:
                 case UpdateState.Success:
                     Close();
@@ -209,6 +216,7 @@ internal sealed class MacUpdateWindow : Form
                     TriggerRetry();
                     break;
                 case UpdateState.Checking:
+                case UpdateState.Downloading:
                     Close();
                     break;
             }
@@ -332,6 +340,12 @@ internal sealed class MacUpdateWindow : Form
             case UpdateState.Checking:
                 DrawCheckingCard(g, x, y, w, h);
                 break;
+            case UpdateState.Available:
+                DrawAvailableCard(g, x, y, w, h);
+                break;
+            case UpdateState.Downloading:
+                DrawDownloadingCard(g, x, y, w, h);
+                break;
             case UpdateState.UpToDate:
                 DrawUpToDateCard(g, x, y, w, h);
                 break;
@@ -361,6 +375,73 @@ internal sealed class MacUpdateWindow : Form
 
         using var descFont = new Font("Microsoft YaHei", 12.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         DrawStringCenter(g, "正在连接 GitHub 服务器查询最新发布版本…", descFont, SecondaryFg, new RectangleF(x, textY + 24 * _scale, w, 22 * _scale));
+    }
+
+    private void DrawAvailableCard(Graphics g, int x, int y, int w, int h)
+    {
+        float cx = x + w / 2f;
+        int iconSize = (int)(32 * _scale);
+        int iconY = y + (int)(14 * _scale);
+        int iconX = (int)(cx - iconSize / 2f);
+
+        // Apple 蓝下载徽标
+        using (var fill = new SolidBrush(AccentBlue))
+        {
+            g.FillEllipse(fill, iconX, iconY, iconSize, iconSize);
+        }
+        using (var pen = new Pen(Color.White, 2.2f * _scale)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        })
+        {
+            float r = iconSize / 2f;
+            float icx = iconX + r;
+            float icy = iconY + r;
+            g.DrawLine(pen, icx, icy - r * 0.42f, icx, icy + r * 0.22f);
+            g.DrawLines(pen, new[]
+            {
+                new PointF(icx - r * 0.32f, icy - r * 0.04f),
+                new PointF(icx, icy + r * 0.28f),
+                new PointF(icx + r * 0.32f, icy - r * 0.04f),
+            });
+            g.DrawLine(pen, icx - r * 0.42f, icy + r * 0.52f, icx + r * 0.42f, icy + r * 0.52f);
+        }
+
+        using var headFont = new Font("Microsoft YaHei", 15.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        int textY = iconY + iconSize + (int)(8 * _scale);
+        DrawStringCenter(g, $"发现新版本 Numlock v{_targetVersion}", headFont, FgColor, new RectangleF(x, textY, w, 22 * _scale));
+
+        using var descFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        DrawStringCenter(g, $"发现新版本可用（当前运行的是 v{_currentVersion}）。点击下方按钮开始下载。", descFont, SecondaryFg,
+            new RectangleF(x + 10 * _scale, textY + 22 * _scale, w - 20 * _scale, 32 * _scale), wordBreak: true);
+
+        // 发布说明链接
+        string linkText = "查看 GitHub Release 发布说明 →";
+        using var linkFont = new Font("Microsoft YaHei", 11.5f * _scale, _linkHover ? FontStyle.Underline : FontStyle.Regular, GraphicsUnit.Pixel);
+        var linkSize = g.MeasureString(linkText, linkFont);
+        int linkX = (int)(cx - linkSize.Width / 2f);
+        int linkY = textY + (int)(54 * _scale);
+        _linkRect = new RectangleF(linkX, linkY, linkSize.Width, linkSize.Height);
+
+        DrawStringCenter(g, linkText, linkFont, _linkHover ? AccentBlueHover : AccentBlue, _linkRect);
+    }
+
+    private void DrawDownloadingCard(Graphics g, int x, int y, int w, int h)
+    {
+        float cx = x + w / 2f;
+        float cy = y + (int)(36 * _scale);
+
+        // 绘制 macOS 原生 12 辐条 Spinner
+        DrawMacSpinner(g, cx, cy, (int)(14 * _scale));
+
+        using var headFont = new Font("Microsoft YaHei", 15.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        int textY = (int)(cy + 24 * _scale);
+        DrawStringCenter(g, "正在下载更新…", headFont, FgColor, new RectangleF(x, textY, w, 24 * _scale));
+
+        using var descFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        DrawStringCenter(g, "正在从 GitHub 下载更新包（约 43 MB），请稍候…", descFont, SecondaryFg, new RectangleF(x, textY + 24 * _scale, w, 22 * _scale));
     }
 
     private void DrawMacSpinner(Graphics g, float cx, float cy, float radius)
@@ -575,7 +656,7 @@ internal sealed class MacUpdateWindow : Form
         using var btnFont = new Font("Microsoft YaHei", 14f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         using var secFont = new Font("Microsoft YaHei", 14f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
 
-        if (_state == UpdateState.Checking)
+        if (_state == UpdateState.Checking || _state == UpdateState.Downloading)
         {
             // 单按钮：取消
             int btnW = (int)(92 * _scale);
@@ -585,6 +666,27 @@ internal sealed class MacUpdateWindow : Form
             DrawPillButton(g, _secondaryBtnRect, "取消", secFont,
                 _secondaryPressed ? SecondaryBtnPressed : (_secondaryHover ? SecondaryBtnHover : SecondaryBtnBg),
                 FgColor);
+        }
+        else if (_state == UpdateState.Available)
+        {
+            // 双按钮：稍后 + 立即下载更新
+            int priW = (int)(130 * _scale);
+            int secW = (int)(76 * _scale);
+            int gap = (int)(10 * _scale);
+
+            int priX = w - padX - priW;
+            int secX = priX - gap - secW;
+
+            _secondaryBtnRect = new RectangleF(secX, btnY, secW, btnH);
+            _primaryBtnRect = new RectangleF(priX, btnY, priW, btnH);
+
+            DrawPillButton(g, _secondaryBtnRect, "稍后", secFont,
+                _secondaryPressed ? SecondaryBtnPressed : (_secondaryHover ? SecondaryBtnHover : SecondaryBtnBg),
+                FgColor);
+
+            DrawPillButton(g, _primaryBtnRect, "立即下载更新", btnFont,
+                _primaryPressed ? AccentBluePressed : (_primaryHover ? AccentBlueHover : AccentBlue),
+                Color.White);
         }
         else if (_state == UpdateState.UpToDate || _state == UpdateState.Success)
         {
@@ -782,6 +884,10 @@ internal sealed class MacUpdateWindow : Form
     {
         switch (_state)
         {
+            case UpdateState.Available:
+                var dlAction = _onDownload;
+                dlAction?.Invoke();
+                break;
             case UpdateState.UpToDate:
             case UpdateState.Success:
                 Close();
@@ -802,8 +908,13 @@ internal sealed class MacUpdateWindow : Form
         switch (_state)
         {
             case UpdateState.Checking:
+            case UpdateState.Available:
             case UpdateState.UpdateReady:
             case UpdateState.Failed:
+                Close();
+                break;
+            case UpdateState.Downloading:
+                _onCancelDownload?.Invoke();
                 Close();
                 break;
         }
@@ -820,6 +931,10 @@ internal sealed class MacUpdateWindow : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
+        if (_state == UpdateState.Downloading)
+        {
+            _onCancelDownload?.Invoke();
+        }
         if (s_instance == this)
         {
             s_instance = null;
@@ -842,6 +957,59 @@ internal sealed class MacUpdateWindow : Form
             s_instance._onRetry = onRetry;
             s_instance._pageUrl = pageUrl;
             s_instance._state = UpdateState.Checking;
+            s_instance._spinnerStep = 0;
+            s_instance._spinnerTimer?.Start();
+            s_instance.Invalidate();
+            s_instance.BringToFront();
+            s_instance.Activate();
+        }
+    }
+
+    /// <summary>更新结果：发现新版本（待用户确认是否下载）。</summary>
+    public static void SetResultAvailable(string version, Action onDownload, string pageUrl = Updater.PageUrl)
+    {
+        if (s_instance != null && !s_instance.IsDisposed)
+        {
+            s_instance._targetVersion = version;
+            s_instance._onDownload = onDownload;
+            s_instance._pageUrl = pageUrl;
+            s_instance._state = UpdateState.Available;
+            s_instance._spinnerTimer?.Stop();
+            s_instance.Invalidate();
+            s_instance.BringToFront();
+            s_instance.Activate();
+        }
+        else
+        {
+            ShowAvailable(version, onDownload, pageUrl);
+        }
+    }
+
+    /// <summary>直接以“发现新版本”状态打开窗口。</summary>
+    public static void ShowAvailable(string version, Action onDownload, string pageUrl = Updater.PageUrl)
+    {
+        EnsureInstance(UpdateState.Available);
+        if (s_instance != null)
+        {
+            s_instance._targetVersion = version;
+            s_instance._onDownload = onDownload;
+            s_instance._pageUrl = pageUrl;
+            s_instance._state = UpdateState.Available;
+            s_instance._spinnerTimer?.Stop();
+            s_instance.Invalidate();
+            s_instance.BringToFront();
+            s_instance.Activate();
+        }
+    }
+
+    /// <summary>切换为“正在下载更新”状态。</summary>
+    public static void ShowDownloading(Action onCancel)
+    {
+        EnsureInstance(UpdateState.Downloading);
+        if (s_instance != null)
+        {
+            s_instance._onCancelDownload = onCancel;
+            s_instance._state = UpdateState.Downloading;
             s_instance._spinnerStep = 0;
             s_instance._spinnerTimer?.Start();
             s_instance.Invalidate();

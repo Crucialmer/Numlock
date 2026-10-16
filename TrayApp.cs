@@ -62,6 +62,7 @@ internal sealed class TrayApp : ApplicationContext
     private const int UpdateOutcomeStaged = 2;        // 新版本已下载好，退出时自动替换
     private const int UpdateOutcomeFailed = 3;        // 网络/解析失败
     private const int UpdateOutcomeStageFailed = 4;   // 发现新版本但自动下载失败
+    private const int UpdateOutcomeAvailable = 5;     // 发现新版本，等待用户确认下载
     private volatile bool _updateCheckRequested;
     private volatile bool _updateManualRequest;
     private volatile bool _updateDone;
@@ -69,6 +70,9 @@ internal sealed class TrayApp : ApplicationContext
     private volatile bool _updateManualResult;
     private volatile string _updateVersionText = "";
     private volatile bool _updateBusy;
+    private volatile bool _downloadBusy;
+    private UpdateInfo? _latestUpdateInfo;
+    private CancellationTokenSource? _downloadCts;
     private Version? _stagedVersion;          // 已就绪的更新（同目录 Numlock.exe.new）的版本
     private bool _autoApplyPending;           // 启动时发现已就绪更新：本次启动直接用新版替换并重启（用户无需操作）
     private bool _applyHelperSpawned;         // 已拉起更新辅助进程：退出路径据此去重，避免同一次更新拉起两个辅助进程
@@ -433,6 +437,12 @@ internal sealed class TrayApp : ApplicationContext
             return;
         }
 
+        if (_downloadBusy)
+        {
+            MacUpdateWindow.ShowDownloading(() => CancelDownload());
+            return;
+        }
+
         MacUpdateWindow.ShowChecking(
             onRetry: () => RequestUpdateCheck(manual: true),
             pageUrl: Updater.PageUrl);
@@ -440,6 +450,7 @@ internal sealed class TrayApp : ApplicationContext
         if (!_updateBusy)
         {
             RequestUpdateCheck(manual: true);
+            PumpUpdateWork();
         }
     }
 
@@ -508,11 +519,12 @@ internal sealed class TrayApp : ApplicationContext
         t.Start();
     }
 
-    /// <summary>后台线程：查询最新版本；需要且允许时下载校验并暂存。只写 volatile 字段与传参，不碰任何控件。</summary>
+    /// <summary>后台线程：仅查询最新版本（解耦架构：不在此处下载更新包）。只写 volatile 字段与传参，不碰任何控件。</summary>
     private void UpdateWorker(bool manual, bool alreadyStaged)
     {
         int outcome = UpdateOutcomeFailed;
         string version = "";
+        UpdateInfo? latestInfo = null;
         try
         {
             var (result, info) = Updater.Check();
@@ -524,16 +536,16 @@ internal sealed class TrayApp : ApplicationContext
             else if (result == UpdateCheckResult.Available && info != null)
             {
                 version = info.Version.ToString(3);
-                string exe = Environment.ProcessPath ?? "";
+                latestInfo = info;
                 // 同一版本已暂存（比对 Version；Tag 是 "v1.1"、展示文案是 "1.1.0"，不能比字符串）则直接算就绪；
-                // 否则下载。下载失败不封死自动路径——下次检查（至多每天一次）会重试，并按版本去重提示一次。
-                if ((alreadyStaged && _stagedVersion == info.Version) || (exe.Length > 0 && Updater.DownloadAndStage(info, exe)))
+                // 否则仅标记 Available，由用户在更新卡片中确认后按需触发下载，绝不暗中阻塞下载 43MB。
+                if (alreadyStaged && _stagedVersion == info.Version)
                 {
                     outcome = UpdateOutcomeStaged;
                 }
                 else
                 {
-                    outcome = UpdateOutcomeStageFailed;
+                    outcome = UpdateOutcomeAvailable;
                 }
             }
         }
@@ -543,6 +555,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         finally
         {
+            _latestUpdateInfo = latestInfo;
             _updateVersionText = version;
             _updateManualResult = manual;
             _updateOutcome = outcome;
@@ -556,6 +569,26 @@ internal sealed class TrayApp : ApplicationContext
     {
         switch (_updateOutcome)
         {
+            case UpdateOutcomeAvailable:
+                if (_updateManualResult || MacUpdateWindow.IsVisible)
+                {
+                    var info = _latestUpdateInfo;
+                    MacUpdateWindow.SetResultAvailable(
+                        _updateVersionText,
+                        () => StartDownloadAndStage(info),
+                        info?.PageUrl ?? Updater.PageUrl);
+                }
+                else if (_updateVersionText.Length > 0 && !string.Equals(Config.UpdateNotifiedVersion, _updateVersionText, StringComparison.Ordinal))
+                {
+                    Config.UpdateNotifiedVersion = _updateVersionText;
+                    SaveConfig();
+                    var info = _latestUpdateInfo;
+                    MacUpdateWindow.ShowAvailable(
+                        _updateVersionText,
+                        () => StartDownloadAndStage(info),
+                        info?.PageUrl ?? Updater.PageUrl);
+                }
+                break;
             case UpdateOutcomeStaged:
                 if (_updateVersionText.Length > 0 && !string.Equals(_updateVersionText, StagedText, StringComparison.Ordinal))
                 {
@@ -574,16 +607,11 @@ internal sealed class TrayApp : ApplicationContext
             case UpdateOutcomeStageFailed:
                 if (_updateManualResult || MacUpdateWindow.IsVisible)
                 {
+                    var info = _latestUpdateInfo;
                     MacUpdateWindow.SetResultFailed(
-                        $"发现新版本 {_updateVersionText}（当前 {Updater.CurrentVersion.ToString(3)}），但自动下载失败。安装目录可能不可写或网络中断。",
-                        () => RequestUpdateCheck(manual: true),
-                        Updater.PageUrl);
-                }
-                else if (_updateVersionText.Length > 0 && !string.Equals(Config.UpdateNotifiedVersion, _updateVersionText, StringComparison.Ordinal))
-                {
-                    Config.UpdateNotifiedVersion = _updateVersionText;
-                    SaveConfig();
-                    MacUpdateWindow.ShowFailed($"发现新版本 {_updateVersionText}，但自动下载未成功。可前往发布页手动下载。", () => RequestUpdateCheck(manual: true), Updater.PageUrl);
+                        $"下载新版本 {_updateVersionText} 失败。网络可能中断或安装目录不可写。",
+                        () => StartDownloadAndStage(info),
+                        info?.PageUrl ?? Updater.PageUrl);
                 }
                 break;
             case UpdateOutcomeUpToDate:
@@ -602,6 +630,90 @@ internal sealed class TrayApp : ApplicationContext
                 }
                 break;
         }
+        SyncMenuState();
+    }
+
+    /// <summary>用户确认后触发下载并校验暂存（解耦后的独立执行路径）。</summary>
+    private void StartDownloadAndStage(UpdateInfo? info)
+    {
+        if (info == null)
+        {
+            RequestUpdateCheck(manual: true);
+            return;
+        }
+
+        if (_downloadBusy)
+        {
+            return;
+        }
+
+        _downloadBusy = true;
+        _downloadCts?.Cancel();
+        _downloadCts = new CancellationTokenSource();
+        var ct = _downloadCts.Token;
+
+        MacUpdateWindow.ShowDownloading(() => CancelDownload());
+        SyncMenuState();
+
+        var t = new Thread(() =>
+        {
+            bool ok = false;
+            try
+            {
+                string exe = Environment.ProcessPath ?? "";
+                ok = exe.Length > 0 && Updater.DownloadAndStage(info, exe, ct);
+            }
+            catch
+            {
+                ok = false;
+            }
+
+            _downloadBusy = false;
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (Menu.IsHandleCreated)
+            {
+                Menu.BeginInvoke(new Action(() =>
+                {
+                    if (ok)
+                    {
+                        _stagedVersion = info.Version;
+                        Config.UpdateNotifiedVersion = info.Version.ToString(3);
+                        SaveConfig();
+                        MacUpdateWindow.SetResultReady(
+                            info.Version.ToString(3),
+                            () => ApplyStagedUpdateAndRestart(),
+                            info.PageUrl);
+                    }
+                    else
+                    {
+                        MacUpdateWindow.SetResultFailed(
+                            $"下载新版本 v{info.Version.ToString(3)} 失败，请检查网络连接后重试。",
+                            () => StartDownloadAndStage(info),
+                            info.PageUrl);
+                    }
+                    SyncMenuState();
+                }));
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "Numlock.UpdateDownload"
+        };
+        t.Start();
+    }
+
+    private void CancelDownload()
+    {
+        try
+        {
+            _downloadCts?.Cancel();
+        }
+        catch { }
+        _downloadBusy = false;
         SyncMenuState();
     }
 
@@ -714,6 +826,11 @@ internal sealed class TrayApp : ApplicationContext
         {
             _updateItem.Text = "重启并更新到 " + StagedText;
             _updateItem.Enabled = true;
+        }
+        else if (_downloadBusy)
+        {
+            _updateItem.Text = "正在下载更新…";
+            _updateItem.Enabled = false;
         }
         else if (_updateBusy)
         {
@@ -1086,6 +1203,7 @@ internal sealed class TrayApp : ApplicationContext
         _showEvent?.Set();           // 唤醒等待线程，令其观察到退出标志
         _showEventThread?.Join(200); // 等线程退出后再随 Main 释放句柄
 
+        CancelDownload();
         _timer?.Stop();
         _timer?.Dispose();
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
