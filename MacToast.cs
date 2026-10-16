@@ -192,7 +192,7 @@ internal sealed class MacToast : Form
         string catText = _type switch
         {
             ToastType.Checking or ToastType.UpdateReady => "检查更新",
-            _ => "系统通知",
+            _ => "状态提醒",
         };
         using var catFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         int catX = padX + miniIconSize + (int)(6 * _scale) + appNameSize.Width + (int)(6 * _scale);

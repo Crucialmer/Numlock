@@ -44,6 +44,12 @@ C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运�
 
 ![深色菜单](docs/menu-dark.png)
 
+软件更新窗口（macOS 26 风格独立卡片）：
+
+![浅色更新窗口](docs/update-light.png)
+
+![深色更新窗口](docs/update-dark.png)
+
 应用图标：
 
 ![图标](docs/icon.png)

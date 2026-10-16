@@ -220,6 +220,26 @@ internal static class SelfTest
             double lumLight = AverageLuminance(Path.Combine(dir, "menu-light.png"));
             double lumDark = AverageLuminance(Path.Combine(dir, "menu-dark.png"));
             Check($"G2b. 深浅两套菜单配色确实不同（平均亮度 {lumLight:F0} / {lumDark:F0}）", lumLight - lumDark > 30);
+
+            using (var upLight = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.UpToDate, dark: false))
+            using (var upDark = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.UpToDate, dark: true))
+            using (var upReady = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.UpdateReady, dark: false))
+            using (var upCheck = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.Checking, dark: true))
+            {
+                string upLightPath = Path.Combine(dir, "update-light.png");
+                string upDarkPath = Path.Combine(dir, "update-dark.png");
+                string upReadyPath = Path.Combine(dir, "update-ready.png");
+                upLight.Save(upLightPath, ImageFormat.Png);
+                upDark.Save(upDarkPath, ImageFormat.Png);
+                upReady.Save(upReadyPath, ImageFormat.Png);
+                double upLumLight = AverageLuminance(upLightPath);
+                double upLumDark = AverageLuminance(upDarkPath);
+                Check($"G2c. macOS 26 软件更新窗口渲染（深浅双模/各状态完整，亮度 {upLumLight:F0}/{upLumDark:F0}）",
+                    LooksRenderedFile(upLightPath) && LooksRenderedFile(upDarkPath) && LooksRenderedFile(upReadyPath)
+                    && upLumLight - upLumDark > 30
+                    && upReady.Width > 300 && upCheck.Width > 300);
+            }
+
             app.SetMenuTheme(!SystemTheme.UsesLightTaskbar()); // 恢复真实主题
             var mm96 = MenuMetrics.For(96, dwmCorners: true);
             var mm192 = MenuMetrics.For(192, dwmCorners: true);

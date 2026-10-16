@@ -421,33 +421,33 @@ internal sealed class TrayApp : ApplicationContext
         SyncMenuState();
     }
 
-    /// <summary>菜单项点击：已有就绪包则执行重启并更新，否则发起手动检查。</summary>
+    /// <summary>菜单项点击：已有就绪包则展示就绪更新卡片，否则打开检查中卡片并立即发起查询。</summary>
     private void OnUpdateMenuClicked()
     {
-        if (_updateBusy)
-        {
-            MacToast.ShowChecking();
-            return;
-        }
         if (_stagedVersion != null)
         {
-            ApplyStagedUpdateAndRestart();
+            MacUpdateWindow.ShowReady(
+                StagedText,
+                () => ApplyStagedUpdateAndRestart(),
+                Updater.PageUrl);
+            return;
         }
-        else
+
+        MacUpdateWindow.ShowChecking(
+            onRetry: () => RequestUpdateCheck(manual: true),
+            pageUrl: Updater.PageUrl);
+
+        if (!_updateBusy)
         {
             RequestUpdateCheck(manual: true);
         }
     }
 
-    /// <summary>请求一次检查更新；manual=true（用户点菜单）时结果会主动告知。</summary>
+    /// <summary>请求一次检查更新；manual=true（用户点菜单）时结果会主动在独立更新窗口告知。</summary>
     private void RequestUpdateCheck(bool manual)
     {
         _updateManualRequest = manual;
         _updateCheckRequested = true;
-        if (manual && !_updateBusy)
-        {
-            MacToast.ShowChecking();
-        }
     }
 
     /// <summary>看护 tick 里的更新泵（UI 线程）：启动自动应用、到期启动后台检查、处理已完成的结果。</summary>
@@ -458,7 +458,7 @@ internal sealed class TrayApp : ApplicationContext
             // 更新刚完成（一次性）：明确告知用户，避免“托盘图标闪了一下”被当成异常
             string done = _pendingUpdatedNotice;
             _pendingUpdatedNotice = "";
-            MacToast.Show("更新完成", "已更新到 " + done + "，本次更新已自动完成。", MacToast.ToastType.Success);
+            MacUpdateWindow.ShowUpdateSuccess(done);
         }
         // 启动自动应用：发现已就绪更新时，本次启动直接换上新版并重启一次（用户无需操作）。
         // 覆盖“上次是关机/注销结束的，退出路径没机会替换”的情况。
@@ -488,7 +488,7 @@ internal sealed class TrayApp : ApplicationContext
             _pendingUpdateNotice = "";
             Config.UpdateNotifiedVersion = pending;
             SaveConfig();
-            MacToast.ShowUpdateReady(pending, () => ApplyStagedUpdateAndRestart());
+            MacUpdateWindow.ShowReady(pending, () => ApplyStagedUpdateAndRestart(), Updater.PageUrl);
         }
         bool due = Config.CheckUpdatesOnStart && Environment.TickCount64 >= _nextAutoCheckMs;
         if (!_updateCheckRequested && !(due && _stagedVersion == null))
@@ -565,33 +565,40 @@ internal sealed class TrayApp : ApplicationContext
                         Config.UpdateNotifiedVersion = _updateVersionText;
                         SaveConfig();
                     }
-                    MacToast.ShowUpdateReady(_updateVersionText, () => ApplyStagedUpdateAndRestart());
+                }
+                if (_updateManualResult || MacUpdateWindow.IsVisible)
+                {
+                    MacUpdateWindow.SetResultReady(_updateVersionText.Length > 0 ? _updateVersionText : StagedText, () => ApplyStagedUpdateAndRestart(), Updater.PageUrl);
                 }
                 break;
             case UpdateOutcomeStageFailed:
-                if (_updateManualResult)
+                if (_updateManualResult || MacUpdateWindow.IsVisible)
                 {
-                    MacToast.ShowUpdateFailed(
+                    MacUpdateWindow.SetResultFailed(
                         $"发现新版本 {_updateVersionText}（当前 {Updater.CurrentVersion.ToString(3)}），但自动下载失败。安装目录可能不可写或网络中断。",
+                        () => RequestUpdateCheck(manual: true),
                         Updater.PageUrl);
                 }
                 else if (_updateVersionText.Length > 0 && !string.Equals(Config.UpdateNotifiedVersion, _updateVersionText, StringComparison.Ordinal))
                 {
                     Config.UpdateNotifiedVersion = _updateVersionText;
                     SaveConfig();
-                    MacToast.ShowUpdateFailed($"发现新版本 {_updateVersionText}，但自动下载未成功。可前往发布页手动下载。", Updater.PageUrl);
+                    MacUpdateWindow.ShowFailed($"发现新版本 {_updateVersionText}，但自动下载未成功。可前往发布页手动下载。", () => RequestUpdateCheck(manual: true), Updater.PageUrl);
                 }
                 break;
             case UpdateOutcomeUpToDate:
-                if (_updateManualResult)
+                if (_updateManualResult || MacUpdateWindow.IsVisible)
                 {
-                    MacToast.ShowUpToDate(Updater.CurrentVersion.ToString(3));
+                    MacUpdateWindow.SetResultUpToDate(Updater.CurrentVersion.ToString(3));
                 }
                 break;
             default:
-                if (_updateManualResult)
+                if (_updateManualResult || MacUpdateWindow.IsVisible)
                 {
-                    MacToast.ShowUpdateFailed("无法连接更新服务器，请检查网络后重试。", Updater.PageUrl);
+                    MacUpdateWindow.SetResultFailed(
+                        "无法连接更新服务器，请检查网络后重试。",
+                        () => RequestUpdateCheck(manual: true),
+                        Updater.PageUrl);
                 }
                 break;
         }

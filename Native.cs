@@ -270,6 +270,13 @@ internal static partial class Native
     [LibraryImport("user32.dll", EntryPoint = "FindWindowW", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
     public static partial IntPtr FindWindowW(string? lpClassName, string? lpWindowName);
 
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ReleaseCapture();
+
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    public static partial IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
     /// <summary>设置窗口沉浸式深色模式（影响 DWM 绘制的边框/阴影色调）。</summary>
     public static void SetImmersiveDarkMode(IntPtr hwnd, bool dark)
     {
