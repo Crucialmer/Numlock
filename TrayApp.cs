@@ -1145,7 +1145,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         string version = !string.IsNullOrEmpty(infoVer)
             ? infoVer
-            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(2) ?? "2.0");
+            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.1");
         MacAboutWindow.ShowAbout(version);
     }
 
