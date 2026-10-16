@@ -5,17 +5,19 @@ using System.Drawing.Text;
 namespace Numlock;
 
 /// <summary>
-/// macOS 26 风格独立“关于软件”模态卡片窗口：
+/// macOS 26 风格独立“关于软件”紧凑型模态卡片窗口（方案 B：极致纯粹极简设计）：
+/// · 纯粹极简视觉：彻底移除版本号字符串与花哨技术胶囊，回归原生极简温润感
+/// · 紧凑秀气尺寸：宽度收缩至 328px，高度收缩至 405px，黄金纵横比例
 /// · 居中呈现于用户当前操作的显示器工作区，与 macOS 原生面板标准对齐
 /// · 连续曲率圆角矩形（Squircle）+ 极细半透明发丝描边 + 瞬态亚克力材质（DWM Transient Acrylic）
 /// · macOS 经典红点关闭控制 + 顶部居中细致标题 + 全窗平滑拖拽移动
-/// · 54px 品牌键帽磁贴应用图标 + 加粗品牌名 + 磨砂半透明版本徽标胶囊
+/// · 50px 品牌键帽磁贴应用图标 + 醒目品牌名 + 次级描述副标题
 /// · 状态图例与功能指引内嵌卡片（macOS Inset Card）：
 ///     1. 实心键帽：已开启（NumLock ON）
 ///     2. 描边键帽：已关闭（NumLock OFF）
 ///     3. 绿色圆点：保持常开模式已激活
-///     4. 快捷交互：双击切换 · 右键呼出菜单
-/// · 纯 GDI+ 抗锯齿文本渲染，彻底杜绝 ClearType 边缘重影
+///     4. 快捷交互：双击切换 · 右键菜单
+/// · 纯 GDI+ 抗锯齿矢量文本渲染，彻底杜绝 ClearType 边缘重影
 /// · 适配高 DPI 显示器（最高 8K 显示器，DPI 384+）与跨屏动态漫游（OnDpiChanged）
 /// · 沉浸式深/浅双模自适应 + 键盘交互（Esc / Enter 关闭）
 /// </summary>
@@ -23,7 +25,6 @@ internal sealed class MacAboutWindow : Form
 {
     private static MacAboutWindow? s_instance;
 
-    private readonly string _version;
     private readonly bool _dark;
     private float _scale;
     private int _cornerRadius;
@@ -54,9 +55,8 @@ internal sealed class MacAboutWindow : Form
 
     public static bool IsVisible => s_instance != null && !s_instance.IsDisposed && s_instance.Visible;
 
-    internal MacAboutWindow(string version, bool? dark = null)
+    internal MacAboutWindow(string? version = null, bool? dark = null)
     {
-        _version = version;
         _dark = dark ?? !SystemTheme.UsesLightTaskbar();
         _scale = DeviceDpi / 96f;
         _cornerRadius = (int)(16 * _scale);
@@ -70,8 +70,9 @@ internal sealed class MacAboutWindow : Form
         BackColor = Color.FromArgb(BgColor.R, BgColor.G, BgColor.B);
         KeyPreview = true;
 
-        int width = (int)(380 * _scale);
-        int height = (int)(490 * _scale);
+        // 紧凑型尺寸：328 x 405（黄金卡片比例）
+        int width = (int)(328 * _scale);
+        int height = (int)(405 * _scale);
         ClientSize = new Size(width, height);
 
         // 居中呈现于用户当前操作光标所在的显示器工作区（符合 macOS 原生面板标准）
@@ -158,8 +159,8 @@ internal sealed class MacAboutWindow : Form
 
         // ——— 2. macOS 顶部标题栏控制（左上角红点 + 居中标题） ———
         float dotSize = 12 * _scale;
-        float dotX = 16 * _scale;
-        float dotY = 14 * _scale;
+        float dotX = 14 * _scale;
+        float dotY = 13 * _scale;
         _closeBtnRect = new RectangleF(dotX - 3, dotY - 3, dotSize + 6, dotSize + 6);
 
         Color dotColor = _closePressed
@@ -183,56 +184,37 @@ internal sealed class MacAboutWindow : Form
         }
 
         // 顶部居中细致标题
-        using (var topFont = new Font("Microsoft YaHei", 12.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel))
+        using (var topFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel))
         {
-            DrawStringCenter(g, "关于软件", topFont, SecondaryFg, new RectangleF(0, 12 * _scale, w, 20 * _scale));
+            DrawStringCenter(g, "关于软件", topFont, SecondaryFg, new RectangleF(0, 11 * _scale, w, 18 * _scale));
         }
 
-        // ——— 3. 应用标识（居中大磁贴 + 品牌名 + 胶囊版本徽标） ———
-        int iconSize = (int)(54 * _scale);
+        // ——— 3. 应用标识（居中精致磁贴 + 品牌名 + 纯粹副标题，不标版本号） ———
+        int iconSize = (int)(50 * _scale);
         int iconX = (w - iconSize) / 2;
-        int iconY = (int)(42 * _scale);
+        int iconY = (int)(38 * _scale);
         using (var tileBmp = IconFactory.RenderAppTile(iconSize))
         {
             g.DrawImage(tileBmp, iconX, iconY, iconSize, iconSize);
         }
 
-        // 品牌应用名（Bold 22px）
-        using var nameFont = new Font("Microsoft YaHei", 22f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        // 品牌应用名（Bold 21px）
+        using var nameFont = new Font("Microsoft YaHei", 21f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var nameSize = g.MeasureString("Numlock", nameFont);
         int nameY = iconY + iconSize + (int)(6 * _scale);
         DrawStringCenter(g, "Numlock", nameFont, FgColor, new RectangleF(0, nameY, w, nameSize.Height));
 
-        // 版本徽标胶囊（Pill Badge）
-        string verBadge = "v" + _version;
-        using var verFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
-        var verSize = g.MeasureString(verBadge, verFont);
-        int badgeW = (int)verSize.Width + (int)(16 * _scale);
-        int badgeH = (int)verSize.Height + (int)(4 * _scale);
-        int badgeX = (w - badgeW) / 2;
-        int badgeY = nameY + (int)nameSize.Height + (int)(4 * _scale);
-
-        var badgeRect = new RectangleF(badgeX, badgeY, badgeW, badgeH);
-        using (var badgePath = Gfx.RoundedRect(badgeRect, badgeH / 2f))
-        {
-            using var badgeFill = new SolidBrush(Color.FromArgb(_dark ? 40 : 25, AccentBlue));
-            g.FillPath(badgeFill, badgePath);
-            using var badgePen = new Pen(Color.FromArgb(_dark ? 80 : 50, AccentBlue), 1f);
-            g.DrawPath(badgePen, badgePath);
-        }
-        DrawStringCenter(g, verBadge, verFont, AccentBlue, badgeRect);
-
-        // 副标题描述
-        using var subFont = new Font("Microsoft YaHei", 12.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        int subY = badgeY + badgeH + (int)(6 * _scale);
-        DrawStringCenter(g, "数字小键盘状态看护 · 保持常开", subFont, SecondaryFg, new RectangleF(0, subY, w, 20 * _scale));
+        // 副标题描述（紧凑排布于软件名下方，无版本号阻断）
+        using var subFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        int subY = nameY + (int)nameSize.Height + (int)(4 * _scale);
+        DrawStringCenter(g, "数字小键盘状态看护 · 保持常开", subFont, SecondaryFg, new RectangleF(0, subY, w, 18 * _scale));
 
         // ——— 4. 状态图例与功能卡片（macOS Inset Card） ———
-        int cardMargin = (int)(20 * _scale);
+        int cardMargin = (int)(16 * _scale);
         int cardX = cardMargin;
-        int cardY = subY + (int)(22 * _scale);
+        int cardY = subY + (int)(20 * _scale);
         int cardW = w - cardMargin * 2;
-        int cardH = (int)(164 * _scale);
+        int cardH = (int)(152 * _scale);
 
         var cardRect = new RectangleF(cardX, cardY, cardW, cardH);
         using (var cardPath = Gfx.RoundedRect(cardRect, 10 * _scale))
@@ -243,39 +225,39 @@ internal sealed class MacAboutWindow : Form
             g.DrawPath(cardStroke, cardPath);
         }
 
-        // 4 行图例：丰富的排版阶梯（Label: 13.5px Bold, Desc: 12.5px Regular）
-        int rowH = (int)(36 * _scale);
-        int startRowY = cardY + (int)(10 * _scale);
-        int rowPadX = cardX + (int)(14 * _scale);
+        // 4 行图例：紧凑精致字阶（Label: 13px Bold, Desc: 12px Regular）
+        int rowH = (int)(34 * _scale);
+        int startRowY = cardY + (int)(8 * _scale);
+        int rowPadX = cardX + (int)(12 * _scale);
         int cardRight = cardX + cardW;
 
         DrawLegendRow(g, rowPadX, startRowY + rowH * 0, cardRight, "实心键帽", "·  已开启（NumLock ON）", isSolid: true, hasBadge: false);
         DrawLegendRow(g, rowPadX, startRowY + rowH * 1, cardRight, "描边键帽", "·  已关闭（NumLock OFF）", isSolid: false, hasBadge: false);
         DrawLegendRow(g, rowPadX, startRowY + rowH * 2, cardRight, "绿色圆点", "·  保持常开模式已激活", isSolid: true, hasBadge: true);
-        DrawActionRow(g, rowPadX, startRowY + rowH * 3, cardRight, "快捷交互", "·  双击切换 · 右键呼出菜单");
+        DrawActionRow(g, rowPadX, startRowY + rowH * 3, cardRight, "快捷交互", "·  双击切换 · 右键菜单");
 
         // ——— 5. 底部主页链接与操作按钮 ———
         string linkText = "GitHub: Crucialmer/Numlock";
-        using var linkFont = new Font("Microsoft YaHei", 12.5f * _scale, _linkHover ? FontStyle.Underline : FontStyle.Regular, GraphicsUnit.Pixel);
+        using var linkFont = new Font("Microsoft YaHei", 12f * _scale, _linkHover ? FontStyle.Underline : FontStyle.Regular, GraphicsUnit.Pixel);
         var linkSize = g.MeasureString(linkText, linkFont);
-        int linkY = cardY + cardH + (int)(14 * _scale);
+        int linkY = cardY + cardH + (int)(12 * _scale);
         int linkX = (int)((w - linkSize.Width) / 2f);
         _linkRect = new RectangleF(linkX, linkY, linkSize.Width, linkSize.Height);
 
         DrawStringCenter(g, linkText, linkFont, _linkHover ? AccentBlueHover : SecondaryFg, _linkRect);
 
         // 主操作胶囊按钮：“好”
-        int btnW = (int)(104 * _scale);
-        int btnH = (int)(32 * _scale);
+        int btnW = (int)(96 * _scale);
+        int btnH = (int)(30 * _scale);
         int btnX = (w - btnW) / 2;
-        int btnY = linkY + (int)linkSize.Height + (int)(12 * _scale);
+        int btnY = linkY + (int)linkSize.Height + (int)(10 * _scale);
         _actionBtnRect = new RectangleF(btnX, btnY, btnW, btnH);
 
         Color btnBg = _actionPressed
             ? AccentBluePressed
             : (_actionHover ? AccentBlueHover : AccentBlue);
 
-        using var btnFont = new Font("Microsoft YaHei", 14f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var btnFont = new Font("Microsoft YaHei", 13.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         DrawPillButton(g, _actionBtnRect, "好", btnFont, btnBg, Color.White);
 
         // ——— 6. 面板外边框 1px 半透明发丝描边 ———
@@ -291,15 +273,15 @@ internal sealed class MacAboutWindow : Form
         using var iconBmp = IconFactory.RenderTrayIcon(sz, isSolid, _dark, hasBadge);
         g.DrawImage(iconBmp, x, iconY, sz, sz);
 
-        int textX = x + sz + (int)(10 * _scale);
-        using var boldFont = new Font("Microsoft YaHei", 13.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        int textX = x + sz + (int)(8 * _scale);
+        using var boldFont = new Font("Microsoft YaHei", 13f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var labelSize = g.MeasureString(label, boldFont);
         int rowH = (int)(32 * _scale);
         DrawStringLeft(g, label, boldFont, FgColor, new RectangleF(textX, y, labelSize.Width, rowH));
 
         int descX = textX + (int)labelSize.Width + (int)(4 * _scale);
-        float descW = Math.Max(0, cardRight - descX - (int)(12 * _scale));
-        using var descFont = new Font("Microsoft YaHei", 12.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        float descW = Math.Max(0, cardRight - descX - (int)(8 * _scale));
+        using var descFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         DrawStringLeft(g, desc, descFont, SecondaryFg, new RectangleF(descX, y, descW, rowH));
     }
 
@@ -310,15 +292,15 @@ internal sealed class MacAboutWindow : Form
         using var dotBrush = new SolidBrush(Color.FromArgb(_dark ? 140 : 180, AccentBlue));
         g.FillEllipse(dotBrush, x + sz / 2f - dotR, y + (int)(8 * _scale) + sz / 2f - dotR, dotR * 2, dotR * 2);
 
-        int textX = x + sz + (int)(10 * _scale);
-        using var boldFont = new Font("Microsoft YaHei", 13.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        int textX = x + sz + (int)(8 * _scale);
+        using var boldFont = new Font("Microsoft YaHei", 13f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
         var labelSize = g.MeasureString(label, boldFont);
         int rowH = (int)(32 * _scale);
         DrawStringLeft(g, label, boldFont, FgColor, new RectangleF(textX, y, labelSize.Width, rowH));
 
         int descX = textX + (int)labelSize.Width + (int)(4 * _scale);
-        float descW = Math.Max(0, cardRight - descX - (int)(12 * _scale));
-        using var descFont = new Font("Microsoft YaHei", 12.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        float descW = Math.Max(0, cardRight - descX - (int)(8 * _scale));
+        using var descFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         DrawStringLeft(g, desc, descFont, SecondaryFg, new RectangleF(descX, y, descW, rowH));
     }
 
@@ -461,8 +443,8 @@ internal sealed class MacAboutWindow : Form
         base.OnFormClosed(e);
     }
 
-    /// <summary>单例打开 macOS 风格“关于软件”独立卡片窗口。</summary>
-    public static void ShowAbout(string version)
+    /// <summary>单例打开 macOS 风格“关于软件”紧凑型独立卡片窗口。</summary>
+    public static void ShowAbout(string? version = null)
     {
         if (s_instance != null && !s_instance.IsDisposed)
         {
@@ -476,9 +458,9 @@ internal sealed class MacAboutWindow : Form
     }
 
     /// <summary>自检与文档离线截图渲染辅助：无需实际弹出窗口即可离线精确渲染外观。</summary>
-    internal static Bitmap RenderPreview(bool dark, string version = "1.5.6")
+    internal static Bitmap RenderPreview(bool dark)
     {
-        using var win = new MacAboutWindow(version, dark);
+        using var win = new MacAboutWindow(null, dark);
         var bmp = new Bitmap(win.ClientSize.Width, win.ClientSize.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
         bmp.SetResolution(96, 96);
         using (var g = Graphics.FromImage(bmp))

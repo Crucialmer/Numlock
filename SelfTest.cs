@@ -252,7 +252,7 @@ internal static class SelfTest
                 Check($"G2d. macOS 26 关于软件窗口渲染（深浅双模/图例卡片完整，亮度 {abLumLight:F0}/{abLumDark:F0}）",
                     LooksRenderedFile(abLightPath) && LooksRenderedFile(abDarkPath)
                     && abLumLight - abLumDark > 30
-                    && abLight.Width >= 370 && abLight.Height >= 480);
+                    && abLight.Width >= 320 && abLight.Height >= 400);
             }
 
             app.SetMenuTheme(!SystemTheme.UsesLightTaskbar()); // 恢复真实主题
@@ -286,15 +286,15 @@ internal static class SelfTest
                 Check("G5. 高 DPI（64px）托盘图标渲染有效", LooksRendered(big));
             }
 
-            // G5b. 8K 高 DPI（384 DPI = 400% 缩放）跨屏漫游与窗口度量计算
+            // G5b. 8K 高 DPI（384 DPI = 400% 缩放）跨屏漫游与紧凑窗口度量计算
             {
                 float s8k = 384f / 96f; // 4.0
-                int aboutW8k = (int)(380 * s8k);
-                int aboutH8k = (int)(490 * s8k);
+                int aboutW8k = (int)(328 * s8k);
+                int aboutH8k = (int)(405 * s8k);
                 int updateW8k = (int)(390 * s8k);
                 int updateH8k = (int)(380 * s8k);
                 Check($"G5b. 8K 高 DPI（384 DPI / 400% 缩放）窗口度量自适应（关于={aboutW8k}x{aboutH8k}px，更新={updateW8k}x{updateH8k}px）",
-                    aboutW8k == 1520 && aboutH8k == 1960 && updateW8k == 1560 && updateH8k == 1520);
+                    aboutW8k == 1312 && aboutH8k == 1620 && updateW8k == 1560 && updateH8k == 1520);
             }
 
             // K. 菜单项文字墨迹垂直居中（用渲染图实测；勾选/箭头按行高居中，文字须同源居中）
