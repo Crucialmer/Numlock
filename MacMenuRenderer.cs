@@ -109,8 +109,8 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
             return;
 
         float s = (e.ToolStrip?.DeviceDpi ?? 96) / 96f;
-        // 统一基准缩进列（42px 标尺）：与左侧对勾保持 12px 黄金间距，且与顶栏 "Numlock" 品牌名（42px）绝对垂直共线对齐
-        float textX = Math.Max(38f, 42f * s);
+        // 统一基准缩进列（38px 标尺）：与左侧对勾保持 11px 黄金间距，且与顶栏 "Numlock" 品牌名（38px）绝对垂直共线对齐
+        float textX = Math.Max(34f, 38f * s);
         var textRect = new Rectangle(
             (int)Math.Round(textX),
             0,
@@ -133,7 +133,7 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
     }
 
-    /// <summary>勾选标记改为矢量对勾（距左 18px，离外框与胶囊边缘舒展对称，选中态纯白反白，macOS 原生观感）</summary>
+    /// <summary>勾选标记改为矢量对勾（距左 15px，离外框与胶囊边缘舒展对称，选中态纯白反白，macOS 原生观感）</summary>
     protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e)
     {
         if (e.Item is MacBrandHeaderItem)
@@ -143,10 +143,10 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
         Graphics g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // 垂直居中、距左 18px，告别紧贴边框，在悬停胶囊内舒展居中
+        // 垂直居中、距左 15px，告别紧贴边框，在悬停胶囊内舒展居中
         float checkW = Math.Max(10f, 12f * s);
         float checkH = Math.Max(8f, 10f * s);
-        float x = Math.Max(15f, 18f * s);
+        float x = Math.Max(13f, 15f * s);
         float y = (e.Item.Height - checkH) / 2f;
 
         bool active = IsRowActive(e.Item);
@@ -179,7 +179,7 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
     protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
     {
         float s = (e.ToolStrip?.DeviceDpi ?? 96) / 96f;
-        float margin = Math.Max(14f, 16f * s);
+        float margin = Math.Max(12f, 14f * s);
         int y = e.Item.Height / 2;
         e.Graphics.SmoothingMode = SmoothingMode.None;
         using var pen = new Pen(MenuBorder, Math.Max(1f, 1f * s));

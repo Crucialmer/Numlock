@@ -5,7 +5,7 @@ namespace Numlock;
 
 /// <summary>
 /// macOS 风格托盘弹出菜单：
-/// 1. 重写 MaxItemSize 强制所有条目填满宽屏（默认 216px+，自适应 DPI）；
+/// 1. 重写 MaxItemSize 强制所有条目填满标准宽度（紧凑 168px+，自适应 DPI，呈现黄金高宽比）；
 /// 2. 统一承载 MacMenuRenderer，消除传统 Windows 菜单左侧灰边。
 /// </summary>
 internal sealed class MacContextMenuStrip : ContextMenuStrip
@@ -23,7 +23,7 @@ internal sealed class MacContextMenuStrip : ContextMenuStrip
         get
         {
             float scale = DeviceDpi / 96f;
-            int minW = (int)Math.Round(216 * scale);
+            int minW = (int)Math.Round(168 * scale);
             return new Size(Math.Max(base.MaxItemSize.Width, minW), base.MaxItemSize.Height);
         }
     }

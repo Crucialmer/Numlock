@@ -22,6 +22,13 @@ internal static class Program
             return;
         }
 
+        if (HasSwitch(args, "--gen-previews"))
+        {
+            ApplicationConfiguration.Initialize();
+            PreviewGenerator.Run();
+            return;
+        }
+
         if (HasSwitch(args, "--genico"))
         {
             ApplicationConfiguration.Initialize();
