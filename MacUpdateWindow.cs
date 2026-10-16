@@ -419,7 +419,7 @@ internal sealed class MacUpdateWindow : Form
         DrawStringCenter(g, $"发现新版本 Numlock v{_targetVersion}", headFont, FgColor, new RectangleF(x, textY, w, 22 * _scale));
 
         using var descFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        DrawStringCenter(g, $"发现新版本可用（当前运行的是 v{_currentVersion}）。点击下方按钮开始下载。", descFont, SecondaryFg,
+        DrawStringCenter(g, $"发现新版本可用（当前运行的是 v{_currentVersion}，新包约 180 KB）。点击下方按钮开始下载。", descFont, SecondaryFg,
             new RectangleF(x + 10 * _scale, textY + 22 * _scale, w - 20 * _scale, 32 * _scale), wordBreak: true);
 
         // 发布说明链接
@@ -472,23 +472,20 @@ internal sealed class MacUpdateWindow : Form
             g.FillPath(fillBrush, fillPath);
         }
 
-        // 实时下载量与百分比文字
+        // 实时下载量与百分比文字（小包自适应 KB/MB 智能显示）
         string progressText;
         if (_totalDownloadBytes > 0)
         {
-            double downMb = _downloadedBytes / (1024.0 * 1024.0);
-            double totalMb = _totalDownloadBytes / (1024.0 * 1024.0);
             int pct = (int)Math.Clamp(Math.Round(_downloadProgress * 100), 0, 100);
-            progressText = $"已下载 {downMb:0.0} MB / {totalMb:0.0} MB ({pct}%)";
+            progressText = $"已下载 {FormatSize(_downloadedBytes)} / {FormatSize(_totalDownloadBytes)} ({pct}%)";
         }
         else if (_downloadedBytes > 0)
         {
-            double downMb = _downloadedBytes / (1024.0 * 1024.0);
-            progressText = $"已下载 {downMb:0.0} MB…";
+            progressText = $"已下载 {FormatSize(_downloadedBytes)}…";
         }
         else
         {
-            progressText = "正在从 GitHub 下载更新包（约 43 MB），请稍候…";
+            progressText = "正在从 GitHub 下载极简更新包（约 180 KB），请稍候…";
         }
 
         using var descFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
@@ -497,6 +494,15 @@ internal sealed class MacUpdateWindow : Form
 
         using var hintFont = new Font("Microsoft YaHei", 10.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
         DrawStringCenter(g, "下载完成将自动校验 SHA-256 并准备就绪", hintFont, MutedFg, new RectangleF(x, textY + 20 * _scale, w, 18 * _scale));
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024 * 1024)
+        {
+            return $"{(bytes / 1024.0):0} KB";
+        }
+        return $"{(bytes / (1024.0 * 1024.0)):0.0} MB";
     }
 
     private void DrawMacSpinner(Graphics g, float cx, float cy, float radius)
