@@ -19,7 +19,7 @@ if not exist "docs\*.txt" (echo ERROR: docs\*.txt not found & exit /b 1)
 if not exist "LICENSE" (echo ERROR: LICENSE not found & exit /b 1)
 
 if exist publish rmdir /s /q publish
-dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+call dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
 if errorlevel 1 (echo. & echo ERROR: dotnet publish failed & exit /b 1)
 
 rem Gate: self-test the packaged exe (needs a desktop session and no running instance).
@@ -61,7 +61,7 @@ echo SHA256: %ZIPHASH%
 
 rem Build and package framework-dependent slim zip (Numlock-Slim.zip, ~150KB)
 if exist publish-slim rmdir /s /q publish-slim
-dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish-slim
+call dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish-slim
 if errorlevel 1 (echo. & echo ERROR: dotnet publish slim failed & exit /b 1)
 
 copy /y "docs\*.txt" "publish-slim\" >nul
