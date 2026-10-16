@@ -16,13 +16,13 @@ C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运�
 - **双击托盘图标**：快速切换 NumLock（保持常开模式下会提示先关闭该选项）。
 - **开机自动启动**：写入 `HKCU\...\CurrentVersion\Run`，无需管理员权限。
 - **图标颜色**：自动跟随系统主题，也可手动指定白色/黑色图标。
-- **macOS 风格菜单**：右键菜单为圆角面板，圆角蓝色高亮、自绘勾选/分隔线/子菜单箭头，配色随系统明暗。
-- **macOS 26 设计美学与多阶排版**：全面采用 Squircle 连续曲率圆角矩形、DWM 瞬态亚克力毛玻璃材质（Transient Acrylic）、经典交通灯红点关闭控制与全窗平滑拖拽移动；排版打破单一字号限制，建立 22px / 16px / 14px / 13.5px / 12.5px / 11.5px 层次丰富的字阶阶梯，全面采用纯 GDI+ 抗锯齿矢量渲染，杜绝任何 ClearType 边缘重影。
+- **macOS 风格精致紧凑菜单**：右键菜单采用 12px 粗体（Weight 700）微交互排版，圆角面板、圆角蓝色高亮、自绘矢量勾选/分隔线/子菜单箭头，界面紧凑轻盈，配色随系统明暗动态切换。
+- **macOS 26 设计美学与多阶排版**：全面采用 Squircle 连续曲率圆角矩形、DWM 瞬态亚克力毛玻璃材质（Transient Acrylic）、经典交通灯红点关闭控制与全窗平滑拖拽移动；弹窗与卡片建立 22px / 16px / 14px / 12px 层次丰富的字阶阶梯，全面采用纯 GDI+ 抗锯齿矢量渲染，杜绝任何 ClearType 边缘重影。
 - **全尺寸高 DPI 适配（最高 8K 显示器，DPI 384+）**：完整适配 Per-Monitor V2 并在所有弹窗中实现 `OnDpiChanged` 跨屏漫游动态重算；在 100%（96 DPI）、200%（4K 192 DPI）直至 400%（8K 384 DPI）高精显示器下均保持清晰锐利、无裁切、无失真。
 - **单实例运行**：重复启动只会提示“已在运行”。
 - **自动更新**：启动后会检查新版本（可在菜单里关闭），发现新版本自动下载并校验；下载完成后在退出时静默替换，下次启动即新版本。若上次是关机/注销结束（来不及替换），**下次打开程序会自动完成替换并重启一次**（无需任何操作）；也可在菜单里选“重启并更新”立即生效。更新完成后会有**一次**“已更新到 X”的提示。
 - **独立软件更新窗口**：采用 macOS 风格独立居中卡片，告别 Windows 原生弹窗；下载阶段内嵌 6px 细长圆角胶囊进度条与 `已下载 XX.X MB / XX.X MB (XX%)` 实时速率与数据量刷新（50ms / 20 FPS 流式节流渲染），支持随时取消与一键重启更新。
-- **配置持久化**：`%AppData%\Numlock\config.json`。
+- **真正零残留便携模式**：配置持久化于程序所在目录 `config.json`，删除软件文件夹即彻底清空系统无残留（只读保护环境自动安全回退至 `%AppData%\Numlock`）。
 
 ## 联网说明
 
@@ -64,9 +64,11 @@ C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运�
 
 ## 使用方法
 
-1. 从 [Releases](../../releases) 下载 `Numlock.zip` 并解压（解压出 `Numlock` 文件夹；自包含版，无需安装 .NET）。
+1. 从 [Releases](../../releases) 下载压缩包并解压：
+   - **`Numlock-Slim.zip`（推荐，极简小包，仅约 150 KB）**：直接借用系统已安装的官方 .NET 10 Desktop Runtime，自动无缝享受 Windows Update 静默推送的 .NET 10 安全与 JIT 提速补丁，无需重新下载软件。
+   - **`Numlock.zip`（标准独立版）**：自包含 .NET 运行时，开箱即用，免去手动安装运行时的步骤。
 2. 双击 `Numlock\Numlock.exe` 运行（SmartScreen 提示时选择“仍要运行”）。
-3. 托盘出现键帽图标后即可使用；双击图标切换，右键图标打开菜单。
+3. 托盘出现键帽图标后即可使用；双击图标切换，右键图标打开精致紧凑的 macOS 风格菜单。
 
 发布页附有 zip 的 SHA-256，可用 `certutil -hashfile Numlock.zip SHA256` 核对下载完整性。
 
@@ -78,13 +80,18 @@ C# / .NET 10 WinForms 编写，单文件绿色免安装，无需安装 .NET 运�
 dotnet build Numlock.csproj -c Release
 ```
 
-发布免安装的单文件版：
+发布免安装版本：
 
-```bash
-dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
-```
+- **极简小包（Framework-Dependent 单文件，约 350 KB）**：
+  ```bash
+  dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o publish-slim
+  ```
+- **独立自包含版（Self-Contained 单文件）**：
+  ```bash
+  dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -p:DebugSymbols=false -o publish
+  ```
 
-或直接运行 `publish.cmd`（自动发布 + 打包免安装 zip `Numlock.zip`，内含 `Numlock\` 文件夹）。
+或直接运行 `publish.cmd`（一键完成测试门禁并同时打包 `Numlock.zip` 与 `Numlock-Slim.zip`）。
 
 ## 命令行参数（开发用）
 
@@ -93,9 +100,9 @@ dotnet publish Numlock.csproj -c Release -r win-x64 --self-contained true -p:Pub
 - `--check-update`：命令行检查更新（退出码 0=已最新、1=有新版本、2=检查失败；无控制台时以退出码为准）。
 - `--apply-update <目标exe> <旧进程ID> [--restart]`：更新辅助模式（由程序自身在退出时调用，一般不手动使用）。
 
-## 配置文件
+## 配置文件（真正零残留便携模式）
 
-设置保存在 `%AppData%\Numlock\config.json`：
+设置默认保存在**软件所在目录下的 `config.json`**（解压即用、删除整个软件文件夹即彻底清空，系统零残留）。若放置在只读受保护目录（如 `C:\Program Files\`），则自动安全降级保存至 `%AppData%\Numlock\config.json`：
 
 ```json
 {

@@ -18,7 +18,7 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
     public MacBrandHeaderItem(Func<bool>? isDark = null)
     {
         AutoSize = false;
-        Size = new Size(168, 56);
+        Size = new Size(156, 46);
         ToolTipText = "点击查看关于软件…";
         _isDark = isDark;
     }
@@ -52,8 +52,8 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
     public override Size GetPreferredSize(Size proposedSize)
     {
         float s = (Owner?.DeviceDpi ?? 96) / 96f;
-        int w = (int)Math.Round(168 * s);
-        int h = (int)Math.Round(56 * s);
+        int w = (int)Math.Round(156 * s);
+        int h = (int)Math.Round(46 * s);
         return new Size(w, h);
     }
 
@@ -64,11 +64,11 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
 
         float s = (toolStrip?.DeviceDpi ?? Owner?.DeviceDpi ?? 96) / 96f;
         float padX = Math.Max(5f, 6f * s);
-        float padY = Math.Max(2f, 3f * s);
+        float padY = Math.Max(2f, 2.5f * s);
         float w = Width - padX * 2f;
         float h = Height - padY * 2f;
         var cardRect = new RectangleF(padX, padY, w, h);
-        float corner = Math.Max(6f, 7f * s);
+        float corner = Math.Max(5f, 6f * s);
 
         bool isDark = _isDark != null ? _isDark() : !SystemTheme.UsesLightTaskbar();
         bool hover = Selected;
@@ -90,20 +90,20 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
             g.DrawPath(pen, path);
         }
 
-        // 第一行：[18px 连续曲率方圆角图标] + Numlock（加粗 Bold 700 品牌名，极简纯粹不标版本号，与菜单项 38px 标尺垂直对齐）
-        float iconSize = Math.Max(16f, 18f * s);
+        // 第一行：[16px 连续曲率方圆角图标] + Numlock（加粗 Bold 700 品牌名，极简纯粹不标版本号，与菜单项 38px 标尺垂直对齐）
+        float iconSize = Math.Max(15f, 16f * s);
         float iconX = cardRect.X + 7f * s;
-        float line1Y = cardRect.Y + 8f * s;
-        var iconRect = new RectangleF(iconX, line1Y + 1f * s, iconSize, iconSize);
+        float line1Y = cardRect.Y + 5.5f * s;
+        var iconRect = new RectangleF(iconX, line1Y + 0.5f * s, iconSize, iconSize);
 
         using (var appTile = IconFactory.RenderAppTile((int)Math.Round(iconSize)))
         {
             g.DrawImage(appTile, iconRect);
         }
 
-        // Numlock 品牌名（Bold 700 微软雅黑，基准字阶，首字 X 坐标与菜单项 38px 绝对共线）
+        // Numlock 品牌名（Bold 700 微软雅黑，基准字阶 12px，首字 X 坐标与菜单项 38px 绝对共线）
         float titleX = iconRect.Right + 7f * s;
-        using (var brandFont = new Font("Microsoft YaHei", 13f * s, FontStyle.Bold, GraphicsUnit.Pixel))
+        using (var brandFont = new Font("Microsoft YaHei", 12f * s, FontStyle.Bold, GraphicsUnit.Pixel))
         {
             Color brandFg = isDark ? Color.FromArgb(0xF2, 0xF2, 0xF7) : Color.FromArgb(0x1D, 0x1D, 0x1F);
             TextRenderer.DrawText(g, "Numlock", brandFont,
@@ -112,11 +112,11 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
         }
 
         // 第二行：状态呼吸圆点 + 实时状态（粗体 700 + 绿/橙呼吸圆点，精炼文案消除多余冗余）
-        float line2Y = cardRect.Y + 30f * s;
+        float line2Y = cardRect.Y + 23.5f * s;
         Color dotColor = (!_numOn && !_enforce)
             ? Color.FromArgb(0xFE, 0xBC, 0x2E)    // TrafficYellow (橙黄)
             : Color.FromArgb(0x28, 0xC8, 0x40);   // TrafficGreen (Apple绿)
-        float dotDiameter = Math.Max(6f, 6.5f * s);
+        float dotDiameter = Math.Max(5.5f, 6f * s);
         float dotX = iconX + 1.5f * s;
         float dotY = line2Y + 4f * s;
 
@@ -132,7 +132,7 @@ internal sealed class MacBrandHeaderItem : ToolStripMenuItem
             (int)Math.Round(statusX),
             (int)Math.Round(line2Y),
             Math.Max(0, (int)Math.Round(cardRect.Right - statusX - 8f * s)),
-            (int)Math.Round(18f * s));
+            (int)Math.Round(16f * s));
 
         using (var statusFont = new Font("Microsoft YaHei", 12f * s, FontStyle.Bold, GraphicsUnit.Pixel))
         {

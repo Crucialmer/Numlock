@@ -57,10 +57,31 @@ internal sealed class AppConfig
     /// <summary>最近一次已向用户提示过的更新版本（同一版本只提示一次）。空 = 从未提示。</summary>
     public string? UpdateNotifiedVersion { get; set; }
 
-    public static string Dir { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Numlock");
+    /// <summary>数据目录：优先使用程序所在目录（真正无残留便携模式）；若只读保护则回退到 %AppData%\Numlock。</summary>
+    public static string Dir { get; } = ResolveDataDirectory();
 
     public static string FilePath { get; } = Path.Combine(Dir, "config.json");
+
+    private static string ResolveDataDirectory()
+    {
+        string appDir = AppDomain.CurrentDomain.BaseDirectory;
+        if (File.Exists(Path.Combine(appDir, "config.json")) || File.Exists(Path.Combine(appDir, "portable")))
+        {
+            return appDir;
+        }
+
+        try
+        {
+            string probe = Path.Combine(appDir, ".probe_" + Guid.NewGuid().ToString("N")[..6]);
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            return appDir;
+        }
+        catch
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Numlock");
+        }
+    }
 
     private static readonly JsonSerializerOptions Options = new()
     {

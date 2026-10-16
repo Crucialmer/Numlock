@@ -271,10 +271,10 @@ internal static class SelfTest
                 var mm = MenuMetrics.For(dpi);
                 float s = dpi / 96f;
                 scalesOk &= mm.Scale == s
-                    && mm.MenuPad == Math.Max(3, (int)Math.Round(6 * s))
-                    && mm.ItemPadV == (int)Math.Round(7 * s)
+                    && mm.MenuPad == Math.Max(2, (int)Math.Round(4 * s))
+                    && mm.ItemPadV == (int)Math.Round(5 * s)
                     && mm.CheckSize == (int)Math.Round(11 * s)
-                    && mm.HighlightRadius == Math.Max(2f, 6 * s)
+                    && mm.HighlightRadius == Math.Max(2f, 5 * s)
                     && mm.CornerRadius == 8 * s
                     && mm.MenuPad >= lastPad;
                 lastPad = mm.MenuPad;

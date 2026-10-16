@@ -165,8 +165,8 @@ internal sealed class TrayApp : ApplicationContext
         Menu.Opening += (_, _) =>
         {
             float s = Menu.DeviceDpi / 96f;
-            Menu.MinimumSize = new Size((int)Math.Round(168 * s), 0);
-            _brandHeader.Size = new Size((int)Math.Round(168 * s), (int)Math.Round(56 * s));
+            Menu.MinimumSize = new Size((int)Math.Round(156 * s), 0);
+            _brandHeader.Size = new Size((int)Math.Round(156 * s), (int)Math.Round(46 * s));
             _brandHeader.UpdateStatus(Config.EnforceNumLock, NumLock.IsOn);
             ApplyMenuMetrics(); // 显示器 DPI 变化时重算（常规情况下为无操作）
             SyncMenuState();
@@ -1040,7 +1040,7 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             var m = MenuMetrics.For(dd.DeviceDpi);
-            float targetFontSize = 13f * m.Scale;
+            float targetFontSize = 12f * m.Scale;
             if (dd.Font.Name != "Microsoft YaHei" || Math.Abs(dd.Font.Size - targetFontSize) > 0.1f || !dd.Font.Bold)
             {
                 dd.Font = CreateMenuFont(m.Scale);
@@ -1064,11 +1064,11 @@ internal sealed class TrayApp : ApplicationContext
     {
         try
         {
-            return new Font("Microsoft YaHei", 13f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+            return new Font("Microsoft YaHei", 12f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
         }
         catch
         {
-            return new Font(FontFamily.GenericSansSerif, 13f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
+            return new Font(FontFamily.GenericSansSerif, 12f * scale, FontStyle.Bold, GraphicsUnit.Pixel);
         }
     }
 
@@ -1145,7 +1145,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         string version = !string.IsNullOrEmpty(infoVer)
             ? infoVer
-            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(2) ?? "1.0");
+            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(2) ?? "2.0");
         MacAboutWindow.ShowAbout(version);
     }
 

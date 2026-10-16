@@ -1,6 +1,7 @@
 bin/
 obj/
 publish/
+publish-slim/
 
 # 发布产物（zip 由 publish.cmd 生成，不作为源码提交）
 *.zip

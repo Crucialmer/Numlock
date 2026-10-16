@@ -17,10 +17,10 @@ internal readonly struct MenuMetrics
     private MenuMetrics(float scale, bool dwmCorners)
     {
         Scale = scale;
-        MenuPad = Math.Max(3, (int)Math.Round(6 * scale));
-        ItemPadV = (int)Math.Round(7 * scale);
+        MenuPad = Math.Max(2, (int)Math.Round(4 * scale));
+        ItemPadV = (int)Math.Round(5 * scale);
         CheckSize = (int)Math.Round(11 * scale);
-        HighlightRadius = Math.Max(2f, 6 * scale);
+        HighlightRadius = Math.Max(2f, 5 * scale);
         CornerRadius = (dwmCorners ? 8f : 10f) * scale;
     }
 
@@ -90,9 +90,9 @@ internal sealed class MacMenuRenderer : ToolStripRenderer
         {
             float s = (e.ToolStrip?.DeviceDpi ?? 96) / 96f;
             float padX = Math.Max(5f, 6f * s);
-            float padY = Math.Max(2f, 2f * s);
+            float padY = Math.Max(1.5f, 1.5f * s);
             var rect = new RectangleF(padX, padY, e.Item.Width - padX * 2f, e.Item.Height - padY * 2f);
-            using var path = Gfx.RoundedRect(rect, Math.Max(5f, 6f * s));
+            using var path = Gfx.RoundedRect(rect, Math.Max(4f, 5f * s));
             Color bg = e.Item.Pressed ? MenuPressedBack : MenuHighlightBack;
             using var brush = new SolidBrush(bg);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;

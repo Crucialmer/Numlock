@@ -94,7 +94,7 @@ internal static class PreviewGenerator
     {
         var renderer = new ParametricMenuRenderer(dark, textX, checkX, sepMargin);
         var menu = new ParametricContextMenuStrip(width, renderer);
-        menu.Font = new Font("Microsoft YaHei", 13f, FontStyle.Bold, GraphicsUnit.Pixel);
+        menu.Font = new Font("Microsoft YaHei", 12f, FontStyle.Bold, GraphicsUnit.Pixel);
 
         var header = new ParametricBrandHeaderItem(width, statusText, iconX, titleX, dotX, statusX, dark);
         var sep1 = new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) };
@@ -125,8 +125,8 @@ internal static class PreviewGenerator
             }
             else if (it is not ParametricBrandHeaderItem)
             {
-                it.Margin = new Padding(0, 0, 0, i == items.Length - 1 ? 6 : 0);
-                it.Padding = new Padding(0, 7, 0, 7);
+                it.Margin = new Padding(0, 0, 0, i == items.Length - 1 ? 4 : 0);
+                it.Padding = new Padding(0, 5, 0, 5);
             }
         }
 
@@ -135,7 +135,7 @@ internal static class PreviewGenerator
         menu.Opening += (_, _) =>
         {
             menu.MinimumSize = new Size(width, 0);
-            header.Size = new Size(width, 56);
+            header.Size = new Size(width, 46);
         };
 
         menu.Show(new Point(300, 300));
@@ -444,16 +444,16 @@ internal sealed class ParametricBrandHeaderItem : ToolStripMenuItem
         }
 
         // Line 1: Icon + Title
-        float iconSize = 18f;
-        float line1Y = cardRect.Y + 8f;
-        var iconRect = new RectangleF(_iconX, line1Y + 1f, iconSize, iconSize);
+        float iconSize = 16f;
+        float line1Y = cardRect.Y + 5.5f;
+        var iconRect = new RectangleF(_iconX, line1Y + 0.5f, iconSize, iconSize);
 
         using (var appTile = IconFactory.RenderAppTile((int)Math.Round(iconSize)))
         {
             g.DrawImage(appTile, iconRect);
         }
 
-        using (var brandFont = new Font("Microsoft YaHei", 13f, FontStyle.Bold, GraphicsUnit.Pixel))
+        using (var brandFont = new Font("Microsoft YaHei", 12f, FontStyle.Bold, GraphicsUnit.Pixel))
         {
             Color brandFg = _dark ? Color.FromArgb(0xF2, 0xF2, 0xF7) : Color.FromArgb(0x1D, 0x1D, 0x1F);
             TextRenderer.DrawText(g, "Numlock", brandFont,
@@ -462,9 +462,9 @@ internal sealed class ParametricBrandHeaderItem : ToolStripMenuItem
         }
 
         // Line 2: Dot + Status
-        float line2Y = cardRect.Y + 30f;
+        float line2Y = cardRect.Y + 23.5f;
         Color dotColor = Color.FromArgb(0x28, 0xC8, 0x40); // Apple Green
-        float dotDiameter = 6.5f;
+        float dotDiameter = 6f;
         float dotY = line2Y + 4f;
 
         using (var dotBrush = new SolidBrush(dotColor))
@@ -474,7 +474,7 @@ internal sealed class ParametricBrandHeaderItem : ToolStripMenuItem
             (int)Math.Round(_statusX),
             (int)Math.Round(line2Y),
             Math.Max(0, (int)Math.Round(cardRect.Right - _statusX - 8f)),
-            18);
+            16);
 
         using (var statusFont = new Font("Microsoft YaHei", 12f, FontStyle.Bold, GraphicsUnit.Pixel))
         {
