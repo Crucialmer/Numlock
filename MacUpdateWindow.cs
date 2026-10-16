@@ -49,6 +49,11 @@ internal sealed class MacUpdateWindow : Form
     private Action? _onDownload;
     private Action? _onCancelDownload;
 
+    // 下载进度跟踪
+    private long _downloadedBytes;
+    private long _totalDownloadBytes;
+    private float _downloadProgress = -1f; // 0.0f .. 1.0f，-1 表示未知/初始化中
+
     // 控件区域交互缓存
     private RectangleF _closeBtnRect;
     private RectangleF _primaryBtnRect;
@@ -431,17 +436,67 @@ internal sealed class MacUpdateWindow : Form
     private void DrawDownloadingCard(Graphics g, int x, int y, int w, int h)
     {
         float cx = x + w / 2f;
-        float cy = y + (int)(36 * _scale);
+        float cy = y + (int)(24 * _scale);
 
         // 绘制 macOS 原生 12 辐条 Spinner
-        DrawMacSpinner(g, cx, cy, (int)(14 * _scale));
+        DrawMacSpinner(g, cx, cy, (int)(11 * _scale));
 
-        using var headFont = new Font("Microsoft YaHei", 15.5f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
-        int textY = (int)(cy + 24 * _scale);
-        DrawStringCenter(g, "正在下载更新…", headFont, FgColor, new RectangleF(x, textY, w, 24 * _scale));
+        using var headFont = new Font("Microsoft YaHei", 15f * _scale, FontStyle.Bold, GraphicsUnit.Pixel);
+        int titleY = (int)(cy + 18 * _scale);
+        DrawStringCenter(g, "正在下载更新…", headFont, FgColor, new RectangleF(x, titleY, w, 22 * _scale));
 
-        using var descFont = new Font("Microsoft YaHei", 12f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
-        DrawStringCenter(g, "正在从 GitHub 下载更新包（约 43 MB），请稍候…", descFont, SecondaryFg, new RectangleF(x, textY + 24 * _scale, w, 22 * _scale));
+        // 绘制 macOS 风格细长胶囊圆角进度条
+        int barH = Math.Max(4, (int)(6 * _scale));
+        int barMarginX = (int)(28 * _scale);
+        int barW = w - barMarginX * 2;
+        int barX = x + barMarginX;
+        int barY = titleY + (int)(28 * _scale);
+
+        var trackRect = new RectangleF(barX, barY, barW, barH);
+        float barRadius = barH / 2f;
+
+        // 底槽轨道
+        using (var trackPath = Gfx.RoundedRect(trackRect, barRadius))
+        {
+            using var trackBrush = new SolidBrush(Color.FromArgb(_dark ? 55 : 30, FgColor));
+            g.FillPath(trackBrush, trackPath);
+        }
+
+        // 进度填充
+        if (_downloadProgress > 0f)
+        {
+            float fillW = Math.Clamp(barW * _downloadProgress, barH, barW);
+            var fillRect = new RectangleF(barX, barY, fillW, barH);
+            using var fillPath = Gfx.RoundedRect(fillRect, barRadius);
+            using var fillBrush = new SolidBrush(AccentBlue);
+            g.FillPath(fillBrush, fillPath);
+        }
+
+        // 实时下载量与百分比文字
+        string progressText;
+        if (_totalDownloadBytes > 0)
+        {
+            double downMb = _downloadedBytes / (1024.0 * 1024.0);
+            double totalMb = _totalDownloadBytes / (1024.0 * 1024.0);
+            int pct = (int)Math.Clamp(Math.Round(_downloadProgress * 100), 0, 100);
+            progressText = $"已下载 {downMb:0.0} MB / {totalMb:0.0} MB ({pct}%)";
+        }
+        else if (_downloadedBytes > 0)
+        {
+            double downMb = _downloadedBytes / (1024.0 * 1024.0);
+            progressText = $"已下载 {downMb:0.0} MB…";
+        }
+        else
+        {
+            progressText = "正在从 GitHub 下载更新包（约 43 MB），请稍候…";
+        }
+
+        using var descFont = new Font("Microsoft YaHei", 11.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        int textY = barY + barH + (int)(8 * _scale);
+        DrawStringCenter(g, progressText, descFont, SecondaryFg, new RectangleF(x, textY, w, 20 * _scale));
+
+        using var hintFont = new Font("Microsoft YaHei", 10.5f * _scale, FontStyle.Regular, GraphicsUnit.Pixel);
+        DrawStringCenter(g, "下载完成将自动校验 SHA-256 并准备就绪", hintFont, MutedFg, new RectangleF(x, textY + 20 * _scale, w, 18 * _scale));
     }
 
     private void DrawMacSpinner(Graphics g, float cx, float cy, float radius)
@@ -1009,12 +1064,47 @@ internal sealed class MacUpdateWindow : Form
         if (s_instance != null)
         {
             s_instance._onCancelDownload = onCancel;
+            s_instance._downloadedBytes = 0;
+            s_instance._totalDownloadBytes = 0;
+            s_instance._downloadProgress = -1f;
             s_instance._state = UpdateState.Downloading;
             s_instance._spinnerStep = 0;
             s_instance._spinnerTimer?.Start();
             s_instance.Invalidate();
             s_instance.BringToFront();
             s_instance.Activate();
+        }
+    }
+
+    /// <summary>更新下载进度（线程安全，自动分发到 UI 线程）。</summary>
+    public static void UpdateProgress(long downloaded, long total)
+    {
+        if (s_instance != null && !s_instance.IsDisposed)
+        {
+            if (s_instance.InvokeRequired)
+            {
+                try
+                {
+                    s_instance.BeginInvoke(new Action(() => UpdateProgress(downloaded, total)));
+                }
+                catch { }
+                return;
+            }
+
+            if (s_instance._state == UpdateState.Downloading)
+            {
+                s_instance._downloadedBytes = downloaded;
+                s_instance._totalDownloadBytes = total;
+                if (total > 0)
+                {
+                    s_instance._downloadProgress = Math.Clamp((float)downloaded / total, 0f, 1f);
+                }
+                else
+                {
+                    s_instance._downloadProgress = -1f;
+                }
+                s_instance.Invalidate();
+            }
         }
     }
 
@@ -1156,7 +1246,10 @@ internal sealed class MacUpdateWindow : Form
         using var win = new MacUpdateWindow(currentVersion, state, dark)
         {
             _targetVersion = targetVersion,
-            _detailMessage = "未能连接到更新服务器，请检查网络连接后重试。"
+            _detailMessage = "未能连接到更新服务器，请检查网络连接后重试。",
+            _downloadedBytes = 18_454_937,
+            _totalDownloadBytes = 43_599_074,
+            _downloadProgress = 18_454_937f / 43_599_074f,
         };
         var bmp = new Bitmap(win.ClientSize.Width, win.ClientSize.Height, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
         bmp.SetResolution(96, 96);

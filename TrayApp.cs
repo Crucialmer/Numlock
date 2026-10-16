@@ -655,13 +655,18 @@ internal sealed class TrayApp : ApplicationContext
         MacUpdateWindow.ShowDownloading(() => CancelDownload());
         SyncMenuState();
 
+        var progress = new Progress<(long DownloadedBytes, long TotalBytes)>(p =>
+        {
+            MacUpdateWindow.UpdateProgress(p.DownloadedBytes, p.TotalBytes);
+        });
+
         var t = new Thread(() =>
         {
             bool ok = false;
             try
             {
                 string exe = Environment.ProcessPath ?? "";
-                ok = exe.Length > 0 && Updater.DownloadAndStage(info, exe, ct);
+                ok = exe.Length > 0 && Updater.DownloadAndStage(info, exe, progress, ct);
             }
             catch
             {

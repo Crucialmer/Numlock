@@ -225,6 +225,7 @@ internal static class SelfTest
             using (var upDark = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.UpToDate, dark: true))
             using (var upReady = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.UpdateReady, dark: false))
             using (var upCheck = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.Checking, dark: true))
+            using (var upDownloading = MacUpdateWindow.RenderPreview(MacUpdateWindow.UpdateState.Downloading, dark: true))
             {
                 string upLightPath = Path.Combine(dir, "update-light.png");
                 string upDarkPath = Path.Combine(dir, "update-dark.png");
@@ -237,7 +238,7 @@ internal static class SelfTest
                 Check($"G2c. macOS 26 软件更新窗口渲染（深浅双模/各状态完整，亮度 {upLumLight:F0}/{upLumDark:F0}）",
                     LooksRenderedFile(upLightPath) && LooksRenderedFile(upDarkPath) && LooksRenderedFile(upReadyPath)
                     && upLumLight - upLumDark > 30
-                    && upReady.Width > 300 && upCheck.Width > 300);
+                    && upReady.Width > 300 && upCheck.Width > 300 && upDownloading.Width > 300);
             }
 
             using (var abLight = MacAboutWindow.RenderPreview(dark: false))

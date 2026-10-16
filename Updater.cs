@@ -247,7 +247,11 @@ internal static class Updater
 
     /// <summary>下载 zip、校验 SHA-256、从压缩包中取出 Numlock.exe 暂存为 xxx.exe.new。返回 true 表示已就绪。
     /// 校验是硬门槛（fail-closed）：拿不到期望哈希就拒绝暂存，绝不"无校验更新"。</summary>
-    internal static bool DownloadAndStage(UpdateInfo info, string targetExe, CancellationToken cancelToken = default)
+    internal static bool DownloadAndStage(
+        UpdateInfo info,
+        string targetExe,
+        IProgress<(long DownloadedBytes, long TotalBytes)>? progress = null,
+        CancellationToken cancelToken = default)
     {
         string? tmpZip = null;
         try
@@ -264,11 +268,13 @@ internal static class Updater
                 {
                     return false;
                 }
+                long totalBytes = resp.Content.Headers.ContentLength ?? 0L;
                 using var src = resp.Content.ReadAsStream(token);
                 using var dst = File.Create(tmpZip);
                 byte[] buffer = new byte[81920];
                 long total = 0;
                 int read;
+                long lastReportTick = 0;
                 while ((read = src.Read(buffer, 0, buffer.Length)) > 0)
                 {
                     token.ThrowIfCancellationRequested();
@@ -279,7 +285,15 @@ internal static class Updater
                         return false;
                     }
                     dst.Write(buffer, 0, read);
+
+                    long now = Environment.TickCount64;
+                    if (now - lastReportTick >= 50)
+                    {
+                        lastReportTick = now;
+                        progress?.Report((total, totalBytes));
+                    }
                 }
+                progress?.Report((total, totalBytes));
             }
             string? expected = info.Sha256;
             if (string.IsNullOrEmpty(expected))
