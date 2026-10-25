@@ -13,7 +13,7 @@
     <Version>2.0.7</Version>
     <Authors>Crucialmer</Authors>
     <Product>Numlock</Product>
-    <Description>在系统托盘显示数字小键盘（NumLock）状态，并支持保持常开</Description>
+    <Description>在系统托盘实时显示数字小键盘（NumLock）状态，支持保持常开，100% 纯绿色免安装单文件</Description>
     <Copyright>Copyright (c) 2026 Crucialmer</Copyright>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
