@@ -20,3 +20,14 @@ TestResults/
 selftest/
 Numlock-v*-selftest.txt
 *.sha256
+
+# 临时构建与便携运行生成文件（严格限定在本文件夹内，不提交）
+.build/
+selftest_run/
+test_out*/
+config.json
+config.json.*
+error.log
+updated.txt
+*.new
+*.done

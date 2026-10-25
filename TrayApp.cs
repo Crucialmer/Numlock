@@ -655,7 +655,8 @@ internal sealed class TrayApp : ApplicationContext
         _downloadCts = new CancellationTokenSource();
         var ct = _downloadCts.Token;
 
-        MacUpdateWindow.ShowDownloading(() => CancelDownload(), info?.AssetSizeBytes ?? 0);
+        var targetInfo = info;
+        MacUpdateWindow.ShowDownloading(() => CancelDownload(), targetInfo.AssetSizeBytes);
         SyncMenuState();
 
         var progress = new Progress<(long DownloadedBytes, long TotalBytes)>(p =>
@@ -669,7 +670,7 @@ internal sealed class TrayApp : ApplicationContext
             try
             {
                 string exe = Environment.ProcessPath ?? "";
-                ok = exe.Length > 0 && Updater.DownloadAndStage(info, exe, progress, ct);
+                ok = exe.Length > 0 && Updater.DownloadAndStage(targetInfo, exe, progress, ct);
             }
             catch
             {
@@ -688,20 +689,20 @@ internal sealed class TrayApp : ApplicationContext
                 {
                     if (ok)
                     {
-                        _stagedVersion = info.Version;
-                        Config.UpdateNotifiedVersion = info.Version.ToString(3);
+                        _stagedVersion = targetInfo.Version;
+                        Config.UpdateNotifiedVersion = targetInfo.Version.ToString(3);
                         SaveConfig();
                         MacUpdateWindow.SetResultReady(
-                            info.Version.ToString(3),
+                            targetInfo.Version.ToString(3),
                             () => ApplyStagedUpdateAndRestart(),
-                            info.PageUrl);
+                            targetInfo.PageUrl);
                     }
                     else
                     {
                         MacUpdateWindow.SetResultFailed(
-                            $"下载新版本 v{info.Version.ToString(3)} 失败，请检查网络连接后重试。",
-                            () => StartDownloadAndStage(info),
-                            info.PageUrl);
+                            $"下载新版本 v{targetInfo.Version.ToString(3)} 失败，请检查网络连接后重试。",
+                            () => StartDownloadAndStage(targetInfo),
+                            targetInfo.PageUrl);
                     }
                     SyncMenuState();
                 }));
@@ -1147,7 +1148,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         string version = !string.IsNullOrEmpty(infoVer)
             ? infoVer
-            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.6");
+            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.7");
         MacAboutWindow.ShowAbout(version);
     }
 
@@ -1175,7 +1176,7 @@ internal sealed class TrayApp : ApplicationContext
             if (!s_uiErrorNotified && s_current != null)
             {
                 s_uiErrorNotified = true; // 只提示一次，避免异常反复时刷气泡
-                s_current.ShowBalloon("Numlock 内部错误", "程序已继续运行（详情见 %AppData%\\Numlock\\error.log）。", ToolTipIcon.Warning);
+                s_current.ShowBalloon("Numlock 内部错误", "程序已继续运行（详情见 error.log）。", ToolTipIcon.Warning);
             }
         }
         catch
@@ -1184,7 +1185,7 @@ internal sealed class TrayApp : ApplicationContext
         }
     }
 
-    /// <summary>把未处理异常追加到 %AppData%\Numlock\error.log（尽力而为；超出 256KB 时整体重写，避免无界增长）。</summary>
+    /// <summary>把未处理异常追加到 error.log（尽力而为；超出 256KB 时整体重写，避免无界增长）。</summary>
     internal static void LogUnhandled(Exception? ex)
     {
         if (ex == null)

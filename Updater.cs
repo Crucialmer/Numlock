@@ -265,7 +265,7 @@ internal static class Updater
         string? tmpZip = null;
         try
         {
-            tmpZip = Path.Combine(Path.GetTempPath(), "numlock-" + Guid.NewGuid().ToString("N")[..8] + ".zip");
+            tmpZip = Path.Combine(AppConfig.Dir, ".numlock-update-" + Guid.NewGuid().ToString("N")[..8] + ".tmp");
             using var timeoutCts = new CancellationTokenSource(DownloadTimeoutMs);
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancelToken);
             var token = linkedCts.Token;
@@ -729,12 +729,14 @@ internal static class Updater
         }
         try
         {
-            foreach (string f in Directory.GetFiles(Path.GetTempPath(), "numlock-*.zip"))
+            string dir = Path.GetDirectoryName(targetExe) ?? AppConfig.Dir;
+            foreach (string f in Directory.GetFiles(dir, ".numlock-update-*.tmp"))
             {
-                if (File.GetLastWriteTimeUtc(f) < DateTime.UtcNow.AddDays(-1))
-                {
-                    TryDelete(f); // 半途退出的下载残留；只清一天前的，避免误删正在进行的下载
-                }
+                TryDelete(f);
+            }
+            foreach (string f in Directory.GetFiles(dir, "numlock-*.zip"))
+            {
+                TryDelete(f);
             }
         }
         catch

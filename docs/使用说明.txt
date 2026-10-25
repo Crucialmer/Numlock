@@ -1,4 +1,4 @@
-﻿Numlock —— 托盘数字小键盘（NumLock）状态工具（.NET 10；版本号见托盘菜单“关于”）
+Numlock —— 托盘数字小键盘（NumLock）状态工具（.NET 10；版本号见托盘菜单“关于”）
 
 ★ 绿色免安装：双击 Numlock.exe 直接运行（若 SmartScreen 提示，点“仍要运行”）。
 ★ 运行后看右下角托盘区：键帽图标 = NumLock 状态
@@ -18,6 +18,6 @@
 ★ 已知限制：
     · 极端情况下（高权限窗口拦截等）“保持常开”会降级为约 300ms 自动纠偏（可能闪断）并气泡提示，功能不中断。
     · 程序未做数字签名，首次运行 SmartScreen 提示属正常现象；个别安全软件可能对键盘钩子给出提示。
-★ 设置保存在 %AppData%\Numlock\config.json
+★ 纯绿色运行：设置与日志仅保存在本程序所在目录下（config.json / error.log），产生的文件绝不出现在本文件夹以外，删除软件文件夹即彻底清空零残留。
 
 项目主页：https://github.com/Crucialmer/Numlock

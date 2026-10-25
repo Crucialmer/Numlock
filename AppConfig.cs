@@ -42,7 +42,7 @@ internal sealed class IconColorConverter : JsonConverter<IconColor>
         => writer.WriteStringValue(value.ToString().ToLowerInvariant());
 }
 
-/// <summary>应用配置（%AppData%\Numlock\config.json）</summary>
+/// <summary>应用配置（config.json）</summary>
 internal sealed class AppConfig
 {
     /// <summary>保持常开：自动把 NumLock 恢复为开启，并拦截键盘上的 NumLock 键。</summary>
@@ -57,31 +57,10 @@ internal sealed class AppConfig
     /// <summary>最近一次已向用户提示过的更新版本（同一版本只提示一次）。空 = 从未提示。</summary>
     public string? UpdateNotifiedVersion { get; set; }
 
-    /// <summary>数据目录：优先使用程序所在目录（真正无残留便携模式）；若只读保护则回退到 %AppData%\Numlock。</summary>
-    public static string Dir { get; } = ResolveDataDirectory();
+    /// <summary>数据目录：严格位于程序所在目录（纯绿色免安装，产生的文件绝不出现在本文件夹以外）。</summary>
+    public static string Dir { get; } = AppDomain.CurrentDomain.BaseDirectory;
 
     public static string FilePath { get; } = Path.Combine(Dir, "config.json");
-
-    private static string ResolveDataDirectory()
-    {
-        string appDir = AppDomain.CurrentDomain.BaseDirectory;
-        if (File.Exists(Path.Combine(appDir, "config.json")) || File.Exists(Path.Combine(appDir, "portable")))
-        {
-            return appDir;
-        }
-
-        try
-        {
-            string probe = Path.Combine(appDir, ".probe_" + Guid.NewGuid().ToString("N")[..6]);
-            File.WriteAllText(probe, "");
-            File.Delete(probe);
-            return appDir;
-        }
-        catch
-        {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Numlock");
-        }
-    }
 
     private static readonly JsonSerializerOptions Options = new()
     {
