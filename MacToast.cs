@@ -117,6 +117,11 @@ internal sealed class MacToast : Form
         _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _animTimer.Tick += (_, _) =>
         {
+            if (IsDisposed || Disposing)
+            {
+                _animTimer?.Stop();
+                return;
+            }
             if (Opacity < _targetOpacity)
             {
                 Opacity = Math.Min(_targetOpacity, Opacity + 0.12);
@@ -135,6 +140,11 @@ internal sealed class MacToast : Form
             _autoCloseTimer = new System.Windows.Forms.Timer { Interval = autoCloseMs };
             _autoCloseTimer.Tick += (_, _) =>
             {
+                if (IsDisposed || Disposing)
+                {
+                    _autoCloseTimer?.Stop();
+                    return;
+                }
                 _autoCloseTimer?.Stop();
                 _autoCloseTimer?.Dispose();
                 Close();
@@ -490,6 +500,22 @@ internal sealed class MacToast : Form
         }
         _autoCloseTimer?.Start();
         base.OnMouseLeave(e);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (s_current == this)
+            {
+                s_current = null;
+            }
+            _autoCloseTimer?.Stop();
+            _autoCloseTimer?.Dispose();
+            _animTimer?.Stop();
+            _animTimer?.Dispose();
+        }
+        base.Dispose(disposing);
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)

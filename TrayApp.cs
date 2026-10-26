@@ -27,6 +27,7 @@ internal sealed class TrayApp : ApplicationContext
     /// <summary>自检用：“图标颜色”子菜单父项。</summary>
     internal ToolStripMenuItem ColorMenuItemForTest => _colorMenu;
 
+    private readonly SynchronizationContext? _syncContext;
     private readonly MacBrandHeaderItem _brandHeader;
     private readonly ToolStripMenuItem _toggleItem;
     private readonly ToolStripMenuItem _enforceItem;
@@ -86,6 +87,7 @@ internal sealed class TrayApp : ApplicationContext
 
     internal TrayApp(EventWaitHandle? showEvent = null, EventWaitHandle? ackEvent = null)
     {
+        _syncContext = SynchronizationContext.Current;
         _ackEvent = ackEvent;
         Config = AppConfig.Load(out _configLoadStatus);
         _configBackupPending = _configLoadStatus == ConfigLoadStatus.ReadError;
@@ -281,7 +283,7 @@ internal sealed class TrayApp : ApplicationContext
                 else if (!_enforceFailureNotified)
                 {
                     _enforceFailureNotified = true;
-                    ShowBalloon("NumLock 自动恢复失败", "可能被高权限窗口（UIPI）拦截，稍后会自动重试。", ToolTipIcon.Warning);
+                    ShowBalloon("NumLock 自动恢复受限", "当前活动窗口权限较高（UIPI 特权隔离），离开该窗口后会自动恢复。", ToolTipIcon.Warning);
                 }
                 on = NumLock.IsOn;
             }
@@ -683,29 +685,39 @@ internal sealed class TrayApp : ApplicationContext
                 return;
             }
 
-            if (Menu.IsHandleCreated)
+            Action uiWork = () =>
             {
-                Menu.BeginInvoke(new Action(() =>
+                if (ok)
                 {
-                    if (ok)
-                    {
-                        _stagedVersion = targetInfo.Version;
-                        Config.UpdateNotifiedVersion = targetInfo.Version.ToString(3);
-                        SaveConfig();
-                        MacUpdateWindow.SetResultReady(
-                            targetInfo.Version.ToString(3),
-                            () => ApplyStagedUpdateAndRestart(),
-                            targetInfo.PageUrl);
-                    }
-                    else
-                    {
-                        MacUpdateWindow.SetResultFailed(
-                            $"下载新版本 v{targetInfo.Version.ToString(3)} 失败，请检查网络连接后重试。",
-                            () => StartDownloadAndStage(targetInfo),
-                            targetInfo.PageUrl);
-                    }
-                    SyncMenuState();
-                }));
+                    _stagedVersion = targetInfo.Version;
+                    Config.UpdateNotifiedVersion = targetInfo.Version.ToString(3);
+                    SaveConfig();
+                    MacUpdateWindow.SetResultReady(
+                        targetInfo.Version.ToString(3),
+                        () => ApplyStagedUpdateAndRestart(),
+                        targetInfo.PageUrl);
+                }
+                else
+                {
+                    MacUpdateWindow.SetResultFailed(
+                        $"下载新版本 v{targetInfo.Version.ToString(3)} 失败，请检查网络连接后重试。",
+                        () => StartDownloadAndStage(targetInfo),
+                        targetInfo.PageUrl);
+                }
+                SyncMenuState();
+            };
+
+            if (_syncContext != null)
+            {
+                _syncContext.Post(_ => uiWork(), null);
+            }
+            else if (Menu.IsHandleCreated)
+            {
+                Menu.BeginInvoke(uiWork);
+            }
+            else
+            {
+                uiWork();
             }
         })
         {
@@ -1148,7 +1160,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         string version = !string.IsNullOrEmpty(infoVer)
             ? infoVer
-            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.7");
+            : (typeof(TrayApp).Assembly.GetName().Version?.ToString(3) ?? "2.0.8");
         MacAboutWindow.ShowAbout(version);
     }
 

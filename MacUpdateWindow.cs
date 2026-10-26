@@ -130,6 +130,11 @@ internal sealed class MacUpdateWindow : Form
         _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _animTimer.Tick += (_, _) =>
         {
+            if (IsDisposed || Disposing)
+            {
+                _animTimer?.Stop();
+                return;
+            }
             if (Opacity < _targetOpacity)
             {
                 Opacity = Math.Min(_targetOpacity, Opacity + 0.12);
@@ -146,6 +151,11 @@ internal sealed class MacUpdateWindow : Form
         _spinnerTimer = new System.Windows.Forms.Timer { Interval = 40 };
         _spinnerTimer.Tick += (_, _) =>
         {
+            if (IsDisposed || Disposing)
+            {
+                _spinnerTimer?.Stop();
+                return;
+            }
             if (_state == UpdateState.Checking || _state == UpdateState.Downloading)
             {
                 _spinnerStep = (_spinnerStep + 1) % 12;
@@ -995,6 +1005,26 @@ internal sealed class MacUpdateWindow : Form
         _spinnerTimer?.Start();
         Invalidate();
         _onRetry?.Invoke();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (_state == UpdateState.Downloading)
+            {
+                _onCancelDownload?.Invoke();
+            }
+            if (s_instance == this)
+            {
+                s_instance = null;
+            }
+            _spinnerTimer?.Stop();
+            _spinnerTimer?.Dispose();
+            _animTimer?.Stop();
+            _animTimer?.Dispose();
+        }
+        base.Dispose(disposing);
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
